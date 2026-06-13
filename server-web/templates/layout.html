@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko-KR">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>산업 안전 스마트 관제 시스템</title>
+
+    <link href="{{ url_for('static', path='vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Nunito:wght@200;400;600;700;800&display=swap" rel="stylesheet">
+
+    <link href="{{ url_for('static', path='css/sb-admin-2.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', path='vendor/datatables/dataTables.bootstrap4.min.css') }}" rel="stylesheet">
+
+    <style>
+        :root{
+            --bg:#f6f7f9;
+            --surface:#ffffff;
+            --ink:#212a35;
+            --ink-soft:#56616e;
+            --muted:#929ba6;
+            --line:#eef1f4;
+            --line-strong:#e3e7ec;
+            --accent:#15a35a;
+            --accent-soft:#e9f6ef;
+            --info:#3f6fd0;
+            --warn:#e0a32e;
+            --danger:#e25563;
+            --sidebar-bg:#1f2733;
+            --sidebar-ink:#aeb6c0;
+            --radius:14px;
+            --radius-sm:10px;
+            --shadow:0 1px 2px rgba(16,24,40,.04), 0 6px 18px rgba(16,24,40,.05);
+            --shadow-xs:0 1px 2px rgba(16,24,40,.05);
+        }
+
+        body {
+            font-family: 'Noto Sans KR', 'Nunito', sans-serif;
+            background-color: var(--bg);
+            color: var(--ink-soft);
+            letter-spacing: -0.1px;
+        }
+
+        .sidebar {
+            background: var(--sidebar-bg) !important;
+            box-shadow: none;
+            border-right: 1px solid rgba(255,255,255,0.04);
+        }
+        .sidebar .nav-item .nav-link {
+            font-weight: 500;
+            padding: 0.8rem 0.85rem;
+            margin: 0.1rem 0.6rem;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
+        }
+        .sidebar .nav-item .nav-link i {
+            font-size: 1rem;
+            margin-right: 0.7rem;
+            color: rgba(255,255,255,0.45);
+            transition: color 0.2s;
+        }
+        .sidebar .nav-item .nav-link:hover {
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+        }
+        .sidebar .nav-item .nav-link:hover i { color: #fff; }
+        .sidebar .nav-item.active .nav-link {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+        }
+        .sidebar .nav-item.active .nav-link i { color: var(--accent); }
+        .sidebar .nav-item.active { position: relative; }
+        .sidebar .nav-item.active::before {
+            content: ""; position: absolute; left: 0; top: 10px; bottom: 10px;
+            width: 3px; border-radius: 3px; background: var(--accent);
+        }
+        .sidebar-brand-text { letter-spacing: 0.3px; font-weight: 700; }
+
+        .collapse-inner {
+            background: rgba(255,255,255,0.04) !important;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: var(--radius-sm) !important;
+            margin: 0.15rem 0.85rem 0.5rem;
+        }
+        .collapse-item {
+            color: rgba(255,255,255,0.7) !important;
+            transition: all 0.2s;
+        }
+        .collapse-item:hover {
+            background: rgba(255,255,255,0.07) !important;
+            color: #fff !important;
+            padding-left: 1.5rem !important;
+        }
+        .collapse-header {
+            color: rgba(255,255,255,0.35) !important;
+            font-size: 0.66rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .topbar {
+            background-color: rgba(246, 247, 249, 0.75) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--line);
+            height: 4.5rem !important;
+        }
+
+        .user-profile-top {
+            display: flex;
+            align-items: center;
+            background: var(--surface);
+            padding: 0.4rem 0.95rem;
+            border-radius: 50rem;
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow-xs);
+        }
+
+        .btn { border-radius: var(--radius-sm); }
+        .shadow-sm { box-shadow: var(--shadow-xs) !important; }
+        .sticky-footer .copyright { font-size: 0.8rem; }
+    </style>
+</head>
+
+<body id="page-top">
+    <div id="wrapper">
+        <ul class="navbar-nav sidebar sidebar-dark accordion" id="accordionSidebar">
+            <a class="sidebar-brand d-flex align-items-center justify-content-center my-3" href="{{ url_for('index') }}">
+                <div class="sidebar-brand-icon">
+                    <i class="fas fa-shield-alt" style="color: #15a35a;"></i>
+                </div>
+                <div class="sidebar-brand-text mx-3">산업 안전 시스템</div>
+            </a>
+
+            <hr class="sidebar-divider my-0" style="border-color: rgba(255,255,255,0.07);">
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/live">
+                        <i class="fas fa-fw fa-video"></i><span>실시간 영상 확인</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/map">
+                        <i class="fas fa-fw fa-map-marked-alt"></i><span>현장 지도 보기</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('charts') }}">
+                        <i class="fas fa-fw fa-exclamation-triangle"></i><span>안전 경고 현황</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('tables') }}">
+                        <i class="fas fa-fw fa-table"></i><span>명단표</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/daily_report">
+                        <i class="fas fa-fw fa-file-invoice"></i><span>일일 결산 보고서</span>
+                    </a>
+                </li>
+
+                <hr class="sidebar-divider" style="border-color: rgba(255,255,255,0.07);">
+
+                <li class="nav-item">
+                    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapsePages">
+                        <i class="fas fa-fw fa-th-large"></i><span>페이지 및 관리</span>
+                    </a>
+                    <section id="collapsePages" class="collapse" data-parent="#accordionSidebar">
+                        <div class="py-2 collapse-inner rounded">
+                            <h6 class="collapse-header">사용자 설정:</h6>
+                            <a class="collapse-item" href="{{ url_for('mypage') }}">
+                                <i class="fas fa-user-circle mr-2"></i>마이페이지
+                            </a>
+                            <a class="collapse-item" href="{{ url_for('logout') }}" style="color: #ff9a9a !important;">
+                                <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
+                            </a>
+                            <div class="dropdown-divider" style="border-color: rgba(255,255,255,0.08);"></div>
+                            <h6 class="collapse-header">계정 관리:</h6>
+                            <a class="collapse-item" href="{{ url_for('login') }}">로그인 화면</a>
+                            <a class="collapse-item" href="{{ url_for('register') }}">회원가입</a>
+                        </div>
+                    </section>
+                </li>
+            <li class="nav-item text-center d-none d-md-inline mt-4">
+                <button class="rounded-circle border-0" id="sidebarToggle"></button>
+            </li>
+        </ul>
+
+        <div id="content-wrapper" class="d-flex flex-column">
+            <nav class="navbar navbar-expand navbar-light topbar mb-4 static-top justify-content-end px-4">
+                <div class="user-profile-top">
+                    <span class="mr-2 d-none d-lg-inline text-gray-800 small font-weight-bold">
+                        {{ request.session.get('user_name', '사용자') }}님 접속중
+                    </span>
+                    <div class="topbar-divider d-none d-sm-block mx-2"></div>
+                    <img class="img-profile rounded-circle shadow-sm" src="{{ url_for('static', path='img/undraw_profile.svg') }}" style="width: 30px; height: 30px;">
+                </div>
+            </nav>
+
+            <main id="content">
+                {% block content %}{% endblock %}
+            </main>
+
+            <footer class="sticky-footer">
+                <div class="container my-auto">
+                    <div class="copyright text-center my-auto text-muted">
+                        <span>&copy; 2026 협성대 산업 안전 관제 시스템 | Designed for Safety</span>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', path='vendor/jquery/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', path='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', path='vendor/jquery-easing/jquery.easing.min.js') }}"></script>
+    <script src="{{ url_for('static', path='js/sb-admin-2.min.js') }}"></script>
+</body>
+</html>

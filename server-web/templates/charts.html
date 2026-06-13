@@ -1,0 +1,458 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<style>
+    /* 1. 배경색 및 기본 폰트 설정 */
+    body { background-color: #f4f7f6; }
+
+    /* 2. 프리미엄 카드 스타일 */
+    .premium-card {
+        border: none;
+        border-radius: 1.25rem;
+        box-shadow: 0 0.5rem 1.5rem rgba(18, 38, 63, 0.05);
+        background-color: #ffffff;
+        overflow: hidden;
+    }
+
+    /* 3. 테이블 커스텀 스타일 */
+    .table-custom th {
+        font-size: 0.85rem;
+        color: #858796;
+        border-top: none;
+        border-bottom: 2px solid #e3e6f0;
+        padding-bottom: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .table-custom td {
+        vertical-align: middle;
+        border-bottom: 1px dashed #f1f3f6;
+        padding: 1.25rem 0.75rem;
+        color: #4e5e6a;
+    }
+
+    /* 4. 위반 증거 이미지 스타일 (크기 160x110으로 확대) */
+    .violation-evidence {
+        width: 160px;
+        height: 110px;
+        border-radius: 0.75rem;
+        object-fit: cover;
+        cursor: pointer;
+        transition: transform 0.3s, box-shadow 0.3s;
+        border: 2px solid #fff;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .violation-evidence:hover {
+        transform: scale(1.1);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        z-index: 10;
+    }
+
+    /* 5. 뱃지 스타일 */
+    .badge-pill {
+        border-radius: 50rem;
+        padding: 0.5em 1.2em;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    /* 6. 빈 상태 디자인 */
+    .empty-state {
+        padding: 5rem 0;
+        text-align: center;
+    }
+    .empty-state i {
+        color: #1cc88a;
+        opacity: 0.2;
+        margin-bottom: 1.5rem;
+    }
+
+    /* 7. 필터 칩 (버튼) 스타일 */
+    .filter-chip {
+        border-radius: 50rem;
+        padding: 0.5rem 1.25rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        border: 1px solid #e3e6f0;
+        background: #fff;
+        color: #858796;
+        transition: all 0.2s ease-in-out;
+        outline: none !important;
+    }
+    .filter-chip:hover {
+        background: #f8f9fc;
+        color: #4e73df;
+        border-color: #bac8f3;
+    }
+    /* 긴급(SOS) 뱃지 깜빡임 */
+    @keyframes sos-badge-pulse {
+        0%,100%{ opacity:1; }
+        50%{ opacity:.6; }
+    }
+    .filter-chip.active {
+        background: #4e73df;
+        color: #fff;
+        border-color: #4e73df;
+        box-shadow: 0 0.25rem 0.5rem rgba(78, 115, 223, 0.2);
+    }
+    
+    /* 8. 관련 법규 텍스트 박스 스타일 */
+    .legal-text-box {
+        background-color: #f8f9fa;
+        border-left: 3px solid #36b9cc;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+</style>
+
+<div class="container-fluid pb-5 pt-3">
+    
+    <!-- [페이지 헤더] 제목 + 새로고침 버튼 + CSV 다운로드 버튼 -->
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="h3 mb-1 text-gray-800 font-weight-bold">안전 경고 현황</h1>
+            <p class="text-muted small mb-0">실시간 AI 탐지 및 센서 기반 안전 수칙 위반 기록입니다.</p>
+        </div>
+        <div class="d-flex">
+            <button class="btn btn-white bg-white shadow-sm rounded-pill px-3 mr-2 font-weight-bold text-primary border" onclick="fetchAllViolations()">
+                <i class="fas fa-sync-alt mr-1"></i> 새로고침
+            </button>
+            <a href="/api/download_violations" class="btn btn-success shadow-sm rounded-pill px-4 font-weight-bold">
+                <i class="fas fa-file-csv mr-1"></i> CSV 다운로드
+            </a>
+        </div>
+    </div>
+
+    <!-- [위반 기록 카드] 필터 칩 + 위반 로그 테이블 전체 컨테이너 -->
+<div class="card premium-card">
+        <div class="card-header bg-white py-4 border-0">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h6 class="m-0 font-weight-bold text-gray-900">
+                    <i class="fas fa-history text-danger mr-2"></i>최근 위반 기록 로그
+                </h6>
+                <span class="badge badge-danger badge-pill shadow-sm" id="violation-count-badge">0건 감지</span>
+            </div>
+            
+            <!-- [카테고리 필터 칩] 전체/영상탐지/환경위험/구역출입/심박이상/긴급/앱알림 필터 버튼 -->
+<div class="d-flex flex-wrap" style="gap: 0.5rem;">
+                <button class="filter-chip active" id="f-all" onclick="applyFilter('ALL')">전체보기</button>
+                <button class="filter-chip" id="f-camera" onclick="applyFilter('CAMERA')"><i class="fas fa-video mr-1"></i>영상 탐지 (안전모/조끼)</button>
+                <button class="filter-chip" id="f-danger" onclick="applyFilter('DANGER')"><i class="fas fa-fire mr-1"></i>환경 위험 (화재/열사병)</button>
+                <button class="filter-chip" id="f-zone" onclick="applyFilter('ZONE')"><i class="fas fa-map-marker-alt mr-1"></i>구역 출입 (진입/퇴장)</button>
+                <button class="filter-chip" id="f-heart" onclick="applyFilter('HEART')"><i class="fas fa-heartbeat mr-1"></i>심박 이상 (정상/주의/위험)</button>
+                <button class="filter-chip" id="f-sos" onclick="applyFilter('SOS')"><i class="fas fa-radiation-alt mr-1"></i>긴급 (충격/구조요청)</button>
+                <button class="filter-chip" id="f-notify" onclick="applyFilter('NOTIFY')"><i class="fas fa-mobile-alt mr-1"></i>앱 알림 전송</button>
+            </div>
+        </div>
+        
+        <div class="card-body px-4 pt-0 pb-4">
+            <div class="table-responsive">
+                <!-- [위반 기록 테이블] 시간/대상/유형/증거이미지/관련법규 5열 구성 -->
+<table class="table table-custom text-center mb-0" id="violationTable">
+                    <thead>
+                        <tr>
+                            <th width="12%">기록 시간</th>
+                            <th width="10%">식별 대상</th>
+                            <th width="12%">위반 유형</th>
+                            <th width="20%">증거 자료</th>
+                            <th width="46%" class="text-left pl-4">관련 법규 및 관리 지침</th>
+                        </tr>
+                    </thead>
+                    <tbody id="violation-list-body">
+                        <tr>
+                            <td colspan="5" class="py-5 text-center">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2 text-muted small">데이터를 불러오는 중입니다...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- [증거 이미지 모달] 증거 이미지 클릭 시 원본 크기로 확대 표시 -->
+<div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 bg-transparent">
+            <div class="modal-body p-0 text-center">
+                <img src="" id="modalImage" class="img-fluid rounded shadow-lg" style="max-height: 85vh;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let allViolations = [];
+    let currentFilter = 'ALL';
+
+    // 카테고리 필터 적용
+    /* [카테고리 필터] 선택된 필터 칩에 따라 allViolations 배열을 분류해 테이블 재렌더링 */
+function applyFilter(filterType) {
+        currentFilter = filterType;
+        
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        const idMap = {'ALL': 'f-all', 'CAMERA': 'f-camera', 'DANGER': 'f-danger', 'ZONE': 'f-zone', 'HEART': 'f-heart', 'SOS': 'f-sos'};
+        document.getElementById(idMap[filterType]).classList.add('active');
+        
+        renderTable();
+    }
+
+    // 위반 유형별 관련 법령/안전수칙 반환 함수
+    /* [관련 법규 텍스트] 위반 유형(심박/구역/열사병/화재/연기/흡연/안전모/조끼)별 관련 법령 반환 */
+function getLegalText(vType, isMap, isExit, isHr) {
+        // 1. 심박수 관련 법규
+        if (isHr) {
+            if (vType.includes('위험') || vType.includes('빈맥') || vType.includes('서맥')) {
+                return "「산업안전보건법」 제45조(질병자의 근로 금지·제한)에 따라 병세가 악화될 우려가 있는 질병자 등에게는 근로를 금지하거나 제한해야 합니다. <strong>즉각적인 작업 중지 및 응급 의료 조치가 필요</strong>하며, 방치하여 중대재해 발생 시 사업주에게 강력한 관리 의무 위반 책임이 발생할 수 있습니다.";
+            } else if (vType.includes('주의')) {
+                return "「산업안전보건기준에 관한 규칙」 제566조(휴식 등)에 따라 폭염 등 극한 환경이나 고강도 작업 시 근로자에게 적절한 휴식 시간을 부여하고 건강 상태를 수시로 확인해야 합니다. 무리한 작업 진행을 통제해 주십시오.";
+            } else {
+                return "현재 심박수가 정상 범위 내에 있습니다. 지속적인 생체 신호 모니터링을 통해 근로자의 건강 상태를 실시간 파악 중입니다.";
+            }
+        }
+
+        // 2. 구역 출입 (GPS) 관련 법규
+        if (isMap) {
+            if (isExit) {
+                return "안전 구역으로의 복귀가 확인되었습니다. 현장 내 이동 시에는 항상 지정된 안전 통행로를 이용하고 안전 표지판의 지시를 엄격히 준수하시기 바랍니다.";
+            } else {
+                if (vType.includes('위험') || vType.includes('위협') || vType.includes('금지')) {
+                    return "「산업안전보건기준에 관한 규칙」에 따라 추락, 낙하, 붕괴 등의 위험이 있는 장소는 <strong>'출입금지구역'</strong>으로 설정하고 통제해야 합니다. 이를 위반하여 재해 발생 시 중대재해처벌법이 적용될 수 있습니다.";
+                } else {
+                    return "「산업안전보건법」 제38조(안전조치)에 따라 인가되지 않은 인원의 공사 현장 임의 진입은 안전사고를 유발할 수 있으므로 철저한 통제가 필요합니다.";
+                }
+            }
+        }
+
+        // ★ 3. 열사병 경고 (온습도)
+        if (vType.includes('열사병') || vType.includes('온도')) {
+            return "「산업안전보건기준에 관한 규칙」 제566조(휴식 등)에 따라 폭염 등 극한 환경에서 작업 시 근로자에게 적절한 휴식 시간을 부여하고, 열사병 등 온열질환 예방을 위한 그늘막 및 깨끗한 식수 등을 제공해야 합니다. <strong>즉시 작업을 중단하고 휴식을 취하도록 조치하십시오.</strong>";
+        }
+
+        // ★ 4. 화재 감지
+        if (vType.includes('화재')) {
+            return "「화재예방, 소방시설 설치·유지 및 안전관리에 관한 법률」 및 「산업안전보건기준에 관한 규칙」 제241조에 따라 <strong>즉각적인 작업 중지·대피·119 신고</strong>가 요구됩니다. 초기 대응이 중대재해 예방의 핵심입니다.";
+        }
+
+        // ★ 5. 연기 감지
+        if (vType.includes('연기')) {
+            return "현장 내 연기가 감지되었습니다. 「산업안전보건법」 제51조(작업 중지)에 따라 연기 발생 시 즉각적인 작업 중지 및 대피를 시행해야 합니다. 화재 여부를 즉시 확인하십시오.";
+        }
+
+        // ★ 6. 흡연 감지
+        if (vType.includes('흡연')) {
+            return "「산업안전보건기준에 관한 규칙」에 따라 가연성 물질 근처 및 지정된 구역 외 흡연은 엄격히 금지됩니다. 즉시 흡연 중단 조치를 취하십시오.";
+        }
+
+        // 7. 카메라 탐지 관련 법규 (안전모, 조끼)
+        if (vType.includes('안전모')) {
+            return "사업주는 근로자에게 안전모를 지급하고 착용하도록 관리·감독할 의무가 있습니다. 이를 위반할 경우 5년 이하의 징역 또는 5천만원 이하의 벌금에 처해질 수 있습니다.";
+        } else if (vType.includes('조끼')) {
+            return "사업주는 근로자에게 <strong>고시인성 안전조끼</strong>를 착용하도록 관리·감독할 의무가 있습니다. 미착용 시 충돌 사고의 위험이 높습니다.";
+        }
+
+        return "산업재해 예방을 위해 현장 내 모든 관련 안전보건수칙을 철저히 준수해야 합니다.";
+    }
+
+    // 데이터 렌더링
+    /* [테이블 렌더링] 현재 필터 기준으로 allViolations 필터링 후 HTML 생성 → tbody 업데이트 */
+function renderTable() {
+        const tbody = document.getElementById('violation-list-body');
+        const badge = document.getElementById('violation-count-badge');
+        let filtered = allViolations;
+
+        if (currentFilter === 'CAMERA') {
+            filtered = filtered.filter(v => v.image_url !== 'map_detect' && v.image_url !== 'heart_rate' && v.image_url !== 'iot_alert'
+                && v.image_url !== 'app_notified'
+                && !['화재','연기','흡연','열사병'].some(k => (v.violation_type||'').includes(k)));
+        } else if (currentFilter === 'DANGER') {
+            filtered = filtered.filter(v => ['화재','연기','흡연','열사병'].some(k => (v.violation_type||'').includes(k)));
+        } else if (currentFilter === 'ZONE') {
+            filtered = filtered.filter(v => v.image_url === 'map_detect');
+        } else if (currentFilter === 'HEART') {
+            filtered = filtered.filter(v => v.image_url === 'heart_rate');
+        } else if (currentFilter === 'SOS') {
+            filtered = filtered.filter(v => v.image_url === 'emergency_sos' || v.image_url === 'emergency_impact');
+        } else if (currentFilter === 'NOTIFY') {
+            filtered = filtered.filter(v => v.image_url === 'app_notified');
+        }
+
+        badge.textContent = filtered.length + '건 표시';
+
+        // 데이터가 없을 때
+        if (filtered.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="empty-state">
+                        <i class="fas fa-check-circle fa-4x"></i>
+                        <h5 class="font-weight-bold text-gray-800">해당 조건의 기록이 없습니다</h5>
+                        <p class="text-muted small">현재 선택한 필터에 해당하는 로그가 없습니다.</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // 데이터가 있을 때 HTML 생성
+        tbody.innerHTML = filtered.map(v => {
+            const isMap      = v.image_url === 'map_detect';
+            const isHr       = v.image_url === 'heart_rate';
+            const isIot      = v.image_url === 'iot_alert';
+            const isSos      = v.image_url === 'emergency_sos' || v.image_url === 'emergency_impact';
+            const isNotify   = v.image_url === 'app_notified';   // ★ 앱 알림 전송 로그
+            const vType      = v.violation_type || '';
+            const isExit     = vType.includes('퇴장');
+
+            // ★ 앱 알림 전송 로그: 전용 렌더링 후 나머지 로직 건너뜀
+            if (isNotify) {
+                // violation_type 에서 "📱 앱 알림 전송 — " 뒤의 원인 추출
+                const cause = vType.replace(/📱 앱 알림 전송\s*[—-]\s*/, '').trim() || '위반';
+                const legalTextNotify = `해당 작업자의 스마트폰 앱으로 <strong>'${cause}'</strong> 알림 및 진동을 전송하였습니다. 작업자가 앱을 통해 경고를 수신하고 즉시 조치를 취하도록 안내되었습니다.`;
+                return `
+                    <tr style="background: #f0f9ff;">
+                        <td class="text-gray-500 small font-weight-bold">${v.detected_at || '--'}</td>
+                        <td class="font-weight-bold text-gray-900">${v.name || '미식별자'}</td>
+                        <td>
+                            <span class="badge badge-pill shadow-sm" style="background:#0ea5e9;color:#fff;">
+                                📱 앱 알림 전송
+                            </span>
+                        </td>
+                        <td class="text-center align-middle">
+                            <div class="d-flex flex-column justify-content-center align-items-center rounded-lg bg-white border shadow-sm mx-auto" style="width:160px;height:110px;border-color:#0ea5e9!important;">
+                                <i class="fas fa-mobile-alt fa-2x mb-2" style="color:#0ea5e9;"></i>
+                                <span class="font-weight-bold small" style="color:#0ea5e9;">진동·알림 전송</span>
+                            </div>
+                        </td>
+                        <td class="bg-light-subtle text-left align-middle pl-0">
+                            <div class="legal-text-box text-muted small">
+                                <div class="mb-1"><i class="fas fa-mobile-alt mr-1" style="color:#0ea5e9;"></i> <strong class="text-gray-800">앱 알림 전송 기록</strong></div>
+                                <span style="color: #5a5c69; line-height: 1.6;">${legalTextNotify}</span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            let imgHtml = '-';
+            let typeBadge = (isSos) ? 'badge-danger' : 'badge-danger';
+            if (isSos) {
+                const sosIcon = v.image_url === 'emergency_impact' ? 'fa-bomb' : 'fa-broadcast-tower';
+                imgHtml = `<div style="color:#c0392b;font-size:2rem;text-align:center;"><i class="fas ${sosIcon}"></i></div>`;
+                typeBadge = 'badge-danger';
+            }
+            const _skipImgRender = isSos;
+            
+            // 이미지 또는 아이콘 박스 렌더링
+            if (!_skipImgRender && isHr) {
+                if (vType.includes('위험') || vType.includes('빈맥') || vType.includes('서맥')) {
+                    typeBadge = 'badge-danger';
+                    imgHtml = `<div class="d-flex flex-column justify-content-center align-items-center rounded-lg bg-white border shadow-sm text-danger mx-auto" style="width: 160px; height: 110px;"><i class="fas fa-heartbeat fa-2x mb-2"></i><span class="font-weight-bold small">심박 이상 감지</span></div>`;
+                } else if (vType.includes('주의')) {
+                    typeBadge = 'badge-warning text-dark';
+                    imgHtml = `<div class="d-flex flex-column justify-content-center align-items-center rounded-lg bg-white border shadow-sm text-warning mx-auto" style="width: 160px; height: 110px;"><i class="fas fa-heartbeat fa-2x mb-2"></i><span class="font-weight-bold small">심박 상승 주의</span></div>`;
+                } else {
+                    typeBadge = 'badge-success';
+                    imgHtml = `<div class="d-flex flex-column justify-content-center align-items-center rounded-lg bg-white border shadow-sm text-success mx-auto" style="width: 160px; height: 110px;"><i class="fas fa-heart fa-2x mb-2"></i><span class="font-weight-bold small">정상 회복</span></div>`;
+                }
+            } else if (isIot || vType.includes('열사병')) {
+                typeBadge = 'badge-danger';
+                imgHtml = `<div class="d-flex flex-column justify-content-center align-items-center rounded-lg bg-white border shadow-sm text-danger mx-auto" style="width: 160px; height: 110px;"><i class="fas fa-temperature-high fa-2x mb-2"></i><span class="font-weight-bold small">열사병 위험</span></div>`;
+            } else if (vType.includes('화재')) {
+                typeBadge = 'badge-danger';
+                imgHtml = v.image_url && !isMap
+                    ? `<img src="${v.image_url}" class="violation-evidence mx-auto d-block" onclick="showImage('${v.image_url}')">`
+                    : `<div class="d-flex flex-column justify-content-center align-items-center rounded-lg bg-white border border-danger shadow-sm text-danger mx-auto" style="width: 160px; height: 110px;"><i class="fas fa-fire fa-2x mb-2"></i><span class="font-weight-bold small">화재 감지</span></div>`;
+            } else if (vType.includes('연기')) {
+                typeBadge = 'badge-secondary';
+                imgHtml = `<div class="d-flex flex-column justify-content-center align-items-center rounded-lg bg-white border shadow-sm text-secondary mx-auto" style="width: 160px; height: 110px;"><i class="fas fa-smog fa-2x mb-2"></i><span class="font-weight-bold small">연기 감지</span></div>`;
+            } else if (vType.includes('흡연')) {
+                typeBadge = 'badge-warning text-dark';
+                imgHtml = v.image_url && !isMap
+                    ? `<img src="${v.image_url}" class="violation-evidence mx-auto d-block" onclick="showImage('${v.image_url}')">`
+                    : `<div class="d-flex flex-column justify-content-center align-items-center rounded-lg bg-white border shadow-sm text-warning mx-auto" style="width: 160px; height: 110px;"><i class="fas fa-smoking fa-2x mb-2"></i><span class="font-weight-bold small">흡연 감지</span></div>`;
+            } else if (vType.includes('조끼')) {
+                typeBadge = 'badge-warning text-dark';
+                imgHtml = v.image_url && !isMap
+                    ? `<img src="${v.image_url}" class="violation-evidence mx-auto d-block" onclick="showImage('${v.image_url}')">`
+                    : `<div class="d-flex flex-column justify-content-center align-items-center rounded-lg bg-white border shadow-sm text-warning mx-auto" style="width: 160px; height: 110px;"><i class="fas fa-tshirt fa-2x mb-2"></i><span class="font-weight-bold small">조끼 미착용</span></div>`;
+            } else if (v.image_url && !isMap) {
+                imgHtml = `<img src="${v.image_url}" class="violation-evidence mx-auto d-block" onclick="showImage('${v.image_url}')">`;
+            } else if (isMap) {
+                if (isExit) {
+                    typeBadge = 'badge-success';
+                    imgHtml = `<div class="d-flex flex-column justify-content-center align-items-center rounded-lg bg-white border shadow-sm text-success mx-auto" style="width: 160px; height: 110px;"><i class="fas fa-walking fa-2x mb-2"></i><span class="font-weight-bold small">복귀 완료</span></div>`;
+                } else {
+                    typeBadge = 'badge-warning text-dark';
+                    imgHtml = `<div class="d-flex flex-column justify-content-center align-items-center rounded-lg bg-white border shadow-sm text-warning mx-auto" style="width: 160px; height: 110px;"><i class="fas fa-map-marker-alt fa-2x mb-2"></i><span class="font-weight-bold small">구역 진입 감지</span></div>`;
+                }
+            }
+
+            // 법규 텍스트 가져오기
+            const legalText = getLegalText(vType, isMap, isExit, isHr);
+            
+            return `
+                <tr>
+                    <td class="text-gray-500 small font-weight-bold">${v.detected_at || '--'}</td>
+                    <td class="font-weight-bold text-gray-900">${v.name || '미식별자'}</td>
+                    <td>
+                        <span class="badge badge-pill ${typeBadge} shadow-sm">
+                            ${v.violation_type || '알 수 없음'}
+                        </span>
+                    </td>
+                    <td class="bg-light-subtle text-center align-middle">
+                        ${imgHtml}
+                    </td>
+                    <td class="bg-light-subtle text-left align-middle pl-0">
+                        <div class="legal-text-box text-muted small">
+                            <div class="mb-1"><i class="fas fa-gavel text-info mr-1"></i> <strong class="text-gray-800">관련 법규 및 관리 지침</strong></div>
+                            <span style="color: #5a5c69; line-height: 1.6;">${legalText}</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // 서버에서 전체 데이터 불러오기
+    /* [위반 데이터 로드] GET /api/get_violations → allViolations 갱신 → renderTable() 호출 */
+function fetchAllViolations() {
+        const refreshIcon = document.querySelector('.fa-sync-alt');
+        if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+        fetch('/api/get_violations')
+            .then(res => res.json())
+            .then(data => {
+                if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+                allViolations = data.violations || [];
+                renderTable(); // 저장된 데이터를 기반으로 현재 필터 렌더링
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+            });
+    }
+
+    // 이미지 확대 모달 호출
+    /* [이미지 확대 모달] 증거 사진 클릭 시 Bootstrap 모달로 원본 이미지 표시 */
+function showImage(url) {
+        document.getElementById('modalImage').src = url;
+        $('#imageModal').modal('show');
+    }
+
+    // 30초마다 자동 갱신
+    /* [자동 갱신] 30초마다 위반 데이터 재조회 (페이지 열어두면 자동 최신화) */
+setInterval(fetchAllViolations, 30000);
+    
+    // 초기 로드
+    document.addEventListener("DOMContentLoaded", fetchAllViolations);
+</script>
+{% endblock %}

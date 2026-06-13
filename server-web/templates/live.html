@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ko-KR">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>산업 안전 스마트 관제 - 실시간 모니터링</title>
+
+    <link href="{{ url_for('static', path='vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="{{ url_for('static', path='css/sb-admin-2.min.css') }}" rel="stylesheet">
+
+    <style>
+        :root {
+            --sidebar-bg: #1f2733;
+            --accent:     #15a35a;
+            --danger:     #e25563;
+            --info:       #3f6fd0;
+            --surface:    #0d1424;
+            --line:       rgba(255,255,255,0.08);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body, html {
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background-color: #080c14;
+            color: #e2e8f0;
+            font-family: 'Noto Sans KR', 'Nunito', sans-serif;
+        }
+
+        /* ── 상단 헤더 ── */
+        .live-header {
+            height: 60px;
+            background: var(--sidebar-bg);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 10px;
+            border-bottom: 1px solid var(--line);
+            flex-shrink: 0;
+        }
+
+        .brand-logo {
+            color: #fff;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 800;
+            font-size: 1.15rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: -0.2px;
+        }
+        .brand-logo i { color: var(--accent); }
+
+        .btn-nav {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #cbd5e0;
+            border-radius: 8px;
+            padding: 4px 12px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-nav:hover {
+            background: rgba(255,255,255,0.13);
+            color: #fff;
+            text-decoration: none;
+        }
+
+        /* 통계 영역 */
+        .stats-bar {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            margin-left: 16px;
+        }
+        .stat-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.76rem;
+            color: #94a3b8;
+        }
+        .stat-chip .val {
+            font-family: 'Nunito', sans-serif;
+            font-weight: 800;
+            font-size: 0.92rem;
+            color: var(--accent);
+        }
+        .stat-chip .val.red { color: var(--danger); }
+
+        .conn-badge {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 2px 9px;
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+        .conn-ok   { background: rgba(21,163,90,0.15); color: var(--accent); border: 1px solid rgba(21,163,90,0.3); }
+        .conn-fail { background: rgba(226,85,99,0.15); color: var(--danger);  border: 1px solid rgba(226,85,99,0.3); }
+
+        .live-badge {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: var(--danger);
+            letter-spacing: 0.5px;
+        }
+        .pulse-dot {
+            width: 8px; height: 8px;
+            background: var(--danger);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%   { box-shadow: 0 0 0 0 rgba(226,85,99,0.7); }
+            70%  { box-shadow: 0 0 0 8px rgba(226,85,99,0); }
+            100% { box-shadow: 0 0 0 0 rgba(226,85,99,0); }
+        }
+
+        /* ── 메인 레이아웃 ── */
+        .main-wrap {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        /* 카메라 */
+        .cam-section {
+            flex: 1;
+            background: #000;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        #cam-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        .cam-error {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            color: #4a5568;
+            text-align: center;
+        }
+        .cam-error i   { font-size: 3rem; }
+        .cam-error p   { font-size: 0.85rem; line-height: 1.6; }
+
+        /* ── 로그 사이드 패널 ── */
+        .log-panel {
+            width: 300px;
+            flex-shrink: 0;
+            background: var(--sidebar-bg);
+            border-left: 1px solid var(--line);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-panel-header {
+            padding: 13px 16px;
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .log-panel-header i { color: var(--danger); }
+        .log-badge {
+            margin-left: auto;
+            background: rgba(226,85,99,0.18);
+            border: 1px solid rgba(226,85,99,0.35);
+            color: var(--danger);
+            border-radius: 20px;
+            padding: 0 8px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            min-width: 24px;
+            text-align: center;
+        }
+
+        .log-scroll {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .log-scroll::-webkit-scrollbar { width: 3px; }
+        .log-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+        /* 로그 아이템 */
+        .log-item {
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            cursor: pointer;
+            transition: background 0.15s;
+            animation: slideIn 0.25s ease;
+        }
+        .log-item:hover { background: rgba(255,255,255,0.04); }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(10px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        .log-thumb {
+            width: 44px; height: 44px;
+            border-radius: 7px;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 1px solid rgba(226,85,99,0.3);
+            background: #0d1424;
+        }
+        .log-no-thumb {
+            width: 44px; height: 44px;
+            border-radius: 7px;
+            flex-shrink: 0;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4a5568;
+            font-size: 1rem;
+        }
+
+        .log-body      { flex: 1; min-width: 0; }
+        .log-name      { font-size: 0.81rem; font-weight: 700; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .log-type      { font-size: 0.7rem; color: var(--danger); margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+        .log-time      { font-size: 0.65rem; color: #475569; margin-top: 3px; }
+
+        /* 빈 상태 */
+        .log-empty {
+            padding: 48px 16px;
+            text-align: center;
+            color: #2d3748;
+        }
+        .log-empty i   { font-size: 2rem; display: block; margin-bottom: 10px; color: var(--accent); opacity: 0.4; }
+        .log-empty p   { font-size: 0.78rem; }
+
+        /* 증거 이미지 모달 */
+        .modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.88);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-img {
+            max-width: 82vw;
+            max-height: 82vh;
+            border-radius: 10px;
+            border: 2px solid rgba(226,85,99,0.4);
+        }
+        .modal-close {
+            position: absolute; top: 18px; right: 22px;
+            font-size: 1.7rem; color: #fff; cursor: pointer; opacity: 0.6; transition: opacity 0.2s;
+        }
+        .modal-close:hover { opacity: 1; }
+    </style>
+</head>
+
+<body>
+
+<!-- ── 헤더 ── -->
+<!-- [상단 헤더] 브랜드 로고 + 홈/로그아웃 버튼 + FPS/위반수 통계 칩 + LIVE 표시 -->
+<header class="live-header">
+    <div class="brand-logo">
+        <i class="fas fa-shield-alt"></i>SafetyGuard
+    </div>
+
+    <a href="{{ url_for('index') }}" class="btn-nav">
+        <i class="fas fa-home"></i> 홈으로
+    </a>
+    <a href="{{ url_for('logout') }}" class="btn-nav">
+        <i class="fas fa-sign-out-alt"></i> 로그아웃
+    </a>
+
+    <div class="stats-bar">
+        <div class="stat-chip">
+            <i class="fas fa-tachometer-alt" style="color:var(--info);font-size:.72rem"></i>
+            <span>FPS</span>
+            <span class="val" id="fps-val">–</span>
+        </div>
+        <div class="stat-chip">
+            <i class="fas fa-exclamation-triangle" style="color:var(--danger);font-size:.72rem"></i>
+            <span>위반</span>
+            <span class="val red" id="total-val">–</span>
+        </div>
+        <span class="conn-badge conn-fail" id="conn-badge">연결 중...</span>
+    </div>
+
+    <div class="live-badge">
+        <div class="pulse-dot"></div> REC LIVE
+    </div>
+</header>
+
+<!-- ── 메인 ── -->
+<div class="main-wrap">
+
+    <!-- 카메라 -->
+    <!-- [카메라 영상 영역] /video_feed MJPEG 스트림 표시 (realtime.py → main.py 프록시) -->
+<section class="cam-section">
+        <img id="cam-feed"
+             src="/video_feed"
+             alt="실시간 카메라"
+             onerror="camError()"
+             onload="camLoaded()">
+        <div class="cam-error" id="cam-err">
+            <i class="fas fa-video-slash"></i>
+            <p>카메라 피드를 불러올 수 없습니다.<br>
+               <span style="font-size:.75rem;color:#374151">realtime.py 서버 상태를 확인하세요.</span>
+            </p>
+        </div>
+    </section>
+
+    <!-- 로그 패널 -->
+    <!-- [위반 로그 패널] 오른쪽 사이드: 안전모 미착용 위반 목록 실시간 표시 -->
+<aside class="log-panel">
+        <div class="log-panel-header">
+            <i class="fas fa-exclamation-triangle"></i>
+            위반 로그
+            <span class="log-badge" id="log-badge">0</span>
+        </div>
+
+        <div class="log-scroll" id="log-list">
+            <div class="log-empty" id="log-empty">
+                <i class="fas fa-check-shield"></i>
+                <p>위반 사항이 없습니다</p>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<!-- 증거 이미지 모달 -->
+<!-- [증거 이미지 모달] 로그 아이템 클릭 시 위반 증거 이미지 전체화면 확대 -->
+<div class="modal-overlay" id="modal" onclick="closeModal()">
+    <span class="modal-close">✕</span>
+    <img class="modal-img" id="modal-img" src="" alt="증거 이미지" onclick="event.stopPropagation()">
+</div>
+
+<script src="{{ url_for('static', path='vendor/jquery/jquery.min.js') }}"></script>
+<script>
+    /* ── 카메라 상태 ── */
+    /* [카메라 오류 처리] 스트림 로드 실패 시 오류 메시지 표시 */
+function camError() {
+        document.getElementById('cam-feed').style.display = 'none';
+        document.getElementById('cam-err').style.display  = 'flex';
+    }
+    function camLoaded() {
+        document.getElementById('cam-feed').style.display = 'block';
+        document.getElementById('cam-err').style.display  = 'none';
+    }
+
+    /* ── 연결 배지 ── */
+    let _connOk = null;
+    function setConn(ok) {
+        if (ok === _connOk) return;
+        _connOk = ok;
+        const b = document.getElementById('conn-badge');
+        b.textContent = ok ? '연결됨' : '연결 끊김';
+        b.className   = 'conn-badge ' + (ok ? 'conn-ok' : 'conn-fail');
+    }
+
+    /* ── 통계 폴링 (/stats → main.py → realtime.py) ── */
+    /* [통계 폴링] GET /stats → FPS + 총위반수 3초마다 갱신 (realtime.py 연결 상태 표시) */
+async function pollStats() {
+        try {
+            const r = await fetch('/stats', { signal: AbortSignal.timeout(2500) });
+            if (!r.ok) throw new Error('stats error');
+            const d = await r.json();
+            document.getElementById('fps-val').textContent   = d.fps   ?? '–';
+            document.getElementById('total-val').textContent = d.total  ?? '–';
+            setConn(true);
+        } catch {
+            setConn(false);
+        }
+    }
+
+    /* ── 위반 로그 폴링 (/violations → main.py → realtime.py) ──
+       ★★★ [수정] 헬멧(안전모) 관련 위반만 표시 ★★★
+       - 다른 유형(위험구역/낙하·충격/심박/SOS 등) 및 '앱 알림 전송' 라인은 숨김
+       - 미식별자 항목도 정상 표시 (이름이 '미식별자' 또는 '미식별자#N')
+       - 같은 사건의 realtime+DB 중복 항목은 [시각+이름+유형] 으로 중복 제거 */
+    let _renderedIds = new Set();
+
+    // 헬멧 위반만 필터링 — 안전모 단어 포함 + '앱 알림' 으로 시작하지 않음
+    /* [헬멧 필터] 안전모 미착용 위반만 표시 — 구역/심박/SOS/앱알림은 제외 */
+function isHelmetOnly(v) {
+        const t  = String(v.type || '');
+        const iu = String(v.image_url || '');
+        // '📱 앱 알림 전송 — 안전모 미착용' 같은 알림 라인은 제외
+        if (t.startsWith('📱') || t.includes('앱 알림') || iu === 'app_notified') return false;
+        // '안전모 미착용' 만 포함
+        return t.includes('안전모');
+    }
+
+    // 같은 사건의 중복 제거: 시각(초) + 이름 + 유형 이 동일하면 한 건으로
+    /* [중복 제거] realtime deque + DB 양쪽에서 같은 사건이 중복 표시되지 않도록 키 생성 */
+function dedupKey(v) {
+        return `${v.date}|${v.time}|${v.name}|${v.type}`;
+    }
+
+    /* [위반 로그 폴링] GET /violations → 헬멧 위반만 필터+중복제거 후 2초마다 사이드패널 갱신 */
+async function pollViolations() {
+        try {
+            const r = await fetch('/violations', { signal: AbortSignal.timeout(3000) });
+            if (!r.ok) throw new Error();
+            const raw = await r.json();   // [{id,time,date,name,type,image_url}, ...]
+            if (!Array.isArray(raw) || raw.length === 0) return;
+
+            // ① 헬멧 위반만 통과
+            // ② 중복 제거 (rt-x + db-y 가 같은 사건이면 한 번만)
+            const seen = new Set();
+            const items = [];
+            for (const v of raw) {
+                if (!isHelmetOnly(v)) continue;
+                const k = dedupKey(v);
+                if (seen.has(k)) continue;
+                seen.add(k);
+                items.push(v);
+            }
+
+            if (items.length === 0) {
+                // 헬멧 위반 자체가 없으면 빈 상태 유지
+                document.getElementById('log-badge').textContent = 0;
+                return;
+            }
+
+            // 신규 항목 감지
+            const newItems = items.filter(v => !_renderedIds.has(v.id));
+            if (newItems.length === 0 && items.length === _renderedIds.size) return;
+
+            const list  = document.getElementById('log-list');
+            const empty = document.getElementById('log-empty');
+            empty.style.display = 'none';
+
+            // 전체 재렌더 (서버가 deque 최신 순으로 반환, 중복 제거 후 동일 순서 유지)
+            list.innerHTML = '';
+            items.forEach(v => {
+                _renderedIds.add(v.id);
+                list.appendChild(makeItem(v));
+            });
+
+            document.getElementById('log-badge').textContent = items.length;
+        } catch { /* silent */ }
+    }
+
+    // ★ [신규] 이메일이 잘못 섞여 들어와도 사람 이름으로 표시
+    window._emailToName = {};
+    (async function buildMap() {
+        try {
+            const r = await fetch('/api/email_name_map');
+            if (r.ok) window._emailToName = await r.json();
+        } catch (e) {}
+    })();
+    function displayName(rawName) {
+        if (!rawName) return '미식별자';
+        const s = String(rawName);
+        if (s.includes('@')) {
+            return window._emailToName[s] || s.split('@')[0];
+        }
+        // 미식별자#3 → 미식별자 #3 (가독성 ↑) — 미식별자 만 있으면 그대로
+        const m = s.match(/^미식별자#(\d+)$/);
+        if (m) return `미식별자 #${m[1]}`;
+        return s;
+    }
+
+    /* [로그 아이템 생성] 위반 1건을 섬네일+이름+유형+시각 카드로 렌더링 */
+function makeItem(v) {
+        const div = document.createElement('div');
+        div.className = 'log-item';
+
+        const imgSrc = v.image_url || null;
+        const meta   = getVMeta(v.type || '');
+        const isNoImg = !imgSrc || imgSrc === '';
+
+        let thumbHtml;
+        if (!isNoImg) {
+            // 증거 이미지 있음
+            thumbHtml = `
+                <img class="log-thumb" src="${imgSrc}" alt="증거"
+                     style="border-color:${meta.color}"
+                     onerror="this.outerHTML='<div class=\\"log-no-thumb\\" style=\\"background:${meta.bg};border-color:${meta.color}\\"><i class=\\"${meta.icon}\\" style=\\"color:${meta.color}\\"></i></div>'">`;
+        } else {
+            // 이미지 없는 유형 (화재/연기/흡연 등) → 아이콘 박스
+            thumbHtml = `
+                <div class="log-no-thumb" style="background:${meta.bg};border-color:${meta.color}">
+                    <i class="${meta.icon}" style="color:${meta.color};font-size:1.2rem"></i>
+                </div>`;
+        }
+
+        div.innerHTML = `
+            ${thumbHtml}
+            <div class="log-body">
+                <div class="log-name">${esc(displayName(v.name))}</div>
+                <div class="log-type" style="color:${meta.color}">
+                    <i class="${meta.icon}"></i>${esc(v.type || '위반')}
+                </div>
+                <div class="log-time">${esc(v.date || '')} ${esc(v.time || '')}</div>
+            </div>`;
+
+        if (!isNoImg) {
+            div.title = '클릭하여 확대';
+            div.addEventListener('click', () => openModal(imgSrc));
+        }
+        return div;
+    }
+
+    /* ── 모달 ── */
+    /* [이미지 모달 열기] 위반 증거 이미지 클릭 시 전체화면 확대 표시 */
+function openModal(src) {
+        document.getElementById('modal-img').src = src;
+        document.getElementById('modal').classList.add('open');
+    }
+    function closeModal() {
+        document.getElementById('modal').classList.remove('open');
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    /* ── 위반 유형별 메타 ── */
+    /* [위반 유형 메타] 위반 종류(화재/연기/흡연/낙상/안전모)별 아이콘+색상 반환 */
+function getVMeta(vtype) {
+        const t = vtype || '';
+        if (t.includes('화재'))  return { icon:'fas fa-fire',       color:'#fc8181', bg:'rgba(252,129,129,0.12)' };
+        if (t.includes('연기'))  return { icon:'fas fa-smog',       color:'#a0aec0', bg:'rgba(160,174,192,0.12)' };
+        if (t.includes('흡연'))  return { icon:'fas fa-smoking',    color:'#f6e05e', bg:'rgba(246,224,94,0.12)'  };
+        if (t.includes('조끼'))  return { icon:'fas fa-tshirt',     color:'#f6ad55', bg:'rgba(246,173,85,0.12)'  };
+        if (t.includes('낙상') || t.includes('떨어짐') || t.includes('추락'))
+                                 return { icon:'fas fa-person-falling', color:'#fc8181', bg:'rgba(252,129,129,0.12)' };
+        return                          { icon:'fas fa-hard-hat',   color:'var(--danger)', bg:'rgba(226,85,99,0.12)' };
+    }
+
+    /* ── 유틸 ── */
+    /* [XSS 방지 이스케이프] 서버 데이터를 innerHTML에 넣기 전 특수문자 치환 */
+function esc(s) {
+        return String(s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    /* ── 초기화 ── */
+    pollStats();
+    pollViolations();
+    setInterval(pollStats,      3000);
+    setInterval(pollViolations, 2000);
+</script>
+</body>
+</html>

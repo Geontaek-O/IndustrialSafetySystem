@@ -1,0 +1,168 @@
+{% extends "layout.html" %}
+
+{% block title %}마이페이지 - 협성대 산업 안전{% endblock %}
+
+{% block content %}
+<style>
+    /* 마이페이지 전용 프리미엄 카드 스타일 */
+    .mypage-card {
+        border: none;
+        border-radius: 1.5rem;
+        box-shadow: 0 0.5rem 2rem rgba(18, 38, 63, 0.08);
+        max-width: 650px;
+        margin: 0 auto;
+        background-color: #ffffff;
+    }
+    
+    /* 상단 아이콘 스타일 */
+    .mypage-icon {
+        font-size: 3.5rem;
+        color: #4e73df;
+        margin-bottom: 1rem;
+    }
+    
+    /* 둥글고 부드러운 입력창 커스텀 */
+    .form-control-custom {
+        border-radius: 50rem;
+        padding: 1.5rem 1.5rem;
+        font-size: 0.95rem;
+        background-color: #f8f9fc;
+        border: 1px solid #eaecf4;
+        color: #6e707e;
+        transition: all 0.2s ease-in-out;
+    }
+    .form-control-custom:focus {
+        background-color: #fff;
+        border-color: #bac8f3;
+        box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+        outline: none;
+    }
+    .form-control-custom:read-only {
+        background-color: #eaecf4;
+        color: #858796;
+        cursor: not-allowed;
+    }
+    
+    /* 프리미엄 버튼 스타일 */
+    .btn-custom {
+        border-radius: 50rem;
+        padding: 0.85rem 1.5rem;
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        transition: all 0.2s;
+    }
+    .btn-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 .5rem 1rem rgba(78, 115, 223, 0.2) !important;
+    }
+
+    /* 라디오 버튼(성별) 수직 정렬 보정 */
+    .gender-label-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+        padding-top: 0.5rem;
+    }
+</style>
+
+<main class="container-fluid py-5">
+    <div class="card mypage-card">
+        <div class="card-body p-sm-5 p-4">
+            
+            <div class="text-center mb-5">
+                <i class="fas fa-user-edit mypage-icon"></i>
+                <h1 class="h4 text-gray-900 font-weight-bold mb-2">회원 정보 수정</h1>
+                <p class="small text-muted mb-0">시스템 접속 및 관리를 위해 아래 정보를 수정할 수 있습니다.</p>
+            </div>
+
+            <section>
+                <!-- [회원정보 수정 폼] POST /mypage/update — 이름/전화/비밀번호/생년월일/성별 수정 -->
+<form class="user" method="POST" action="/mypage/update">
+                    
+                    {% if error %}
+                    <div class="alert alert-danger text-center shadow-sm mb-4" style="border-radius: 50rem; font-size: 0.9rem;">
+                        {{ error }}
+                    </div>
+                    {% endif %}
+                    {% if success %}
+                    <div class="alert alert-success text-center shadow-sm mb-4" style="border-radius: 50rem; font-size: 0.9rem;">
+                        {{ success }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="form-group row">
+                        <div class="col-sm-6 mb-3 mb-sm-0">
+                            <!-- [이름 + 전화번호] 수정 가능한 기본 인적사항 -->
+<input type="text" name="name" class="form-control form-control-custom" placeholder="성함 (예: 홍길동)" value="{{ user_info.name if user_info else user_name }}" required>
+                        </div>
+                        <div class="col-sm-6">
+                            <input type="tel" name="phone" class="form-control form-control-custom" placeholder="연락처 (숫자만 입력)" value="{{ user_info.phone if user_info else '' }}">
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-4">
+                        <!-- [이메일 표시] 이메일(계정 ID)은 readonly — 변경 불가 -->
+<input type="email" id="editEmail" class="form-control form-control-custom" placeholder="이메일 (계정 아이디 - 변경 불가)" value="{{ request.session.get('user_email', '') }}" readonly>
+                    </div>
+
+                    <div class="form-group row mb-4">
+                        <div class="col-sm-6 mb-3 mb-sm-0">
+                            <!-- [비밀번호 변경] 비어있으면 기존 비밀번호 유지 -->
+<input type="password" name="password" class="form-control form-control-custom" placeholder="새 비밀번호 입력">
+                        </div>
+                        <div class="col-sm-6">
+                            <input type="password" name="password_confirm" class="form-control form-control-custom" placeholder="새 비밀번호 확인">
+                        </div>
+                    </div>
+
+                    <hr class="my-4 border-light">
+
+                    <div class="form-group row align-items-center mb-5">
+                        <div class="col-sm-6 mb-4 mb-sm-0">
+                            <label class="ml-2 small text-muted font-weight-bold mb-1">생년월일</label>
+                            <!-- [생년월일 + 성별] 추가 인적사항 수정 영역 -->
+<input type="date" name="birthdate" class="form-control form-control-custom" style="padding: 1.45rem 1.5rem;" value="{{ user_info.birthdate if user_info else '' }}">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="small text-muted font-weight-bold mb-2 text-center d-block w-100">성별</label>
+                            <div class="gender-label-container gap-4">
+                                <div class="custom-control custom-radio custom-control-inline mx-3">
+                                    <input type="radio" id="genderMale" name="gender" class="custom-control-input" value="남성" {% if user_info and user_info.gender == '남성' %}checked{% endif %}>
+                                    <label class="custom-control-label text-gray-700 font-weight-bold" for="genderMale">남성</label>
+                                </div>
+                                <div class="custom-control custom-radio custom-control-inline mx-3">
+                                    <input type="radio" id="genderFemale" name="gender" class="custom-control-input" value="여성" {% if user_info and user_info.gender == '여성' %}checked{% endif %}>
+                                    <label class="custom-control-label text-gray-700 font-weight-bold" for="genderFemale">여성</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- [수정 완료 버튼] 폼 제출 → DB 업데이트 + 세션 이름 즉시 동기화 -->
+<button type="submit" class="btn btn-primary btn-custom btn-block shadow-sm">
+                        회원 수정 완료
+                    </button>
+                </form>
+            </section>
+
+            <hr class="my-4 mt-5">
+
+            <footer class="text-center">
+                <nav aria-label="회원 정보 관련 이동 메뉴">
+                    <div class="mb-2">
+                        <a class="small text-muted font-weight-bold" href="{{ url_for('forgot_password') }}">비밀번호를 잊으셨나요?</a>
+                    </div>
+                    <div>
+                        <a class="small font-weight-bold text-primary" href="{{ url_for('index') }}">
+                            <i class="fas fa-home fa-sm mr-1"></i> 메인 대시보드로 돌아가기
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+
+        </div>
+    </div>
+</main>
+{% endblock %}

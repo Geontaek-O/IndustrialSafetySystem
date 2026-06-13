@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko-KR">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>산업 안전 모니터링 시스템 - 로그인</title>
+    <link href="{{ url_for('static', path='vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
+    <link href="{{ url_for('static', path='css/sb-admin-2.min.css') }}" rel="stylesheet">
+    
+    <style>
+        /* 안전 시스템에 어울리는 차분한 남색 그라데이션 배경 */
+        body.bg-monitoring {
+            background-color: #2c3e50;
+            background-image: linear-gradient(180deg, #2c3e50 10%, #1a252f 100%);
+            background-size: cover;
+        }
+        /* 로그인 카드 테두리를 둥글게 처리하여 부드러운 느낌 추가 */
+        .login-card {
+            border-radius: 1rem;
+        }
+    </style>
+</head>
+
+<body class="bg-monitoring">
+    <main class="container d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+        <div class="row justify-content-center w-100">
+            <div class="col-xl-5 col-lg-6 col-md-8 col-sm-10">
+                
+                <!-- [로그인 카드] 로그인 폼 전체를 감싸는 카드 컴포넌트 -->
+<article class="card o-hidden border-0 shadow-lg login-card">
+                    <div class="card-body p-0">
+                        <div class="p-5">
+                            <!-- [카드 헤더] 시스템 아이콘 + 제목 + 안내 문구 -->
+<header class="text-center mb-4">
+                                <i class="fas fa-shield-alt fa-3x text-primary mb-3"></i>
+                                <h1 class="h4 text-gray-900 font-weight-bold mb-2">산업 안전 모니터링</h1>
+                                <p class="text-muted small">시스템 접속을 위해 로그인을 진행해 주세요.</p>
+                            </header>
+
+                            <!-- [에러 메시지] 로그인 실패 시 서버에서 전달된 오류 문구 표시 -->
+{% if error %}
+                            <div class="alert alert-danger text-center small">
+                                {{ error }}
+                            </div>
+                            {% endif %}
+
+                            <section>
+                                <!-- [로그인 폼] POST /login — 이메일+비밀번호 전송 → 세션 저장 → /index 이동 -->
+<form method="post" action="/login">
+                                    <fieldset class="border-0 p-0">
+                                        <legend class="sr-only">로그인 정보 입력</legend>
+                                        
+                                        <div class="form-group">
+                                            <label for="inputEmail" class="sr-only">이메일 주소</label>
+                                            <input type="email" id="inputEmail" name="email" 
+                                                   class="form-control form-control-user" 
+                                                   placeholder="이메일을 입력하세요" required>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="inputPassword" class="sr-only">비밀번호</label>
+                                            <input type="password" id="inputPassword" name="password" 
+                                                   class="form-control form-control-user" 
+                                                   placeholder="비밀번호" required>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <div class="custom-control custom-checkbox small">
+                                                <input type="checkbox" class="custom-control-input" id="customCheck">
+                                                <label class="custom-control-label" for="customCheck">로그인 상태 유지</label>
+                                            </div>
+                                        </div>
+                                    </fieldset>
+
+                                    <!-- [로그인 버튼] 폼 제출 → main.py /login POST 처리 -->
+<button type="submit" class="btn btn-primary btn-user btn-block font-weight-bold">
+                                        로그인
+                                    </button>
+
+                                    <!-- [게스트 접속 버튼] DB 조회 없이 게스트 세션만 생성 → /index 이동 -->
+<a href="{{ url_for('guest_login') }}" class="btn btn-secondary btn-user btn-block mt-3">
+                                        <i class="fas fa-user-secret"></i> 비로그인으로 접속하기
+                                    </a>
+                                </form>
+                            </section>
+                            
+                            <hr class="my-4">
+
+                            <!-- [하단 링크] 비밀번호 찾기 / 회원가입 페이지 이동 링크 -->
+<footer class="text-center">
+                                <nav aria-label="계정 관리 링크">
+                                    <div class="mb-2">
+                                        <a class="small text-muted" href="{{ url_for('forgot_password') }}">비밀번호를 잊으셨나요?</a>
+                                    </div>
+                                    <div>
+                                        <a class="small font-weight-bold" href="{{ url_for('register') }}">새로운 계정 만들기</a>
+                                    </div>
+                                </nav>
+                            </footer>
+                        </div>
+                    </div>
+                </article>
+
+            </div>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', path='vendor/jquery/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', path='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', path='vendor/jquery-easing/jquery.easing.min.js') }}"></script>
+    <script src="{{ url_for('static', path='js/sb-admin-2.min.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>안전 관제 센터 - 협성대 산업 안전</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script>
+  /* ✅ 아이콘 안전 렌더 래퍼
+     - lucide(아이콘 라이브러리)가 아직 안 떴거나 로딩에 실패해도
+       지도/마커가 절대 멈추지 않도록 try/catch로 감싼다.
+     - lucide가 로드되면 onload에서 한 번 더 그려준다. */
+  // [아이콘 안전 렌더] lucide 로드 실패해도 지도/마커는 정상 동작하도록 try/catch 처리
+  window.renderIcons = function () {
+    try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch (e) {}
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/lucide@1.16.0/dist/umd/lucide.min.js"
+        onload="window.renderIcons()"
+        onerror="console.warn('lucide 아이콘 로드 실패 — 장식 아이콘만 미표시, 지도/마커는 정상 동작합니다.')"></script>
+<style>
+/* ── 토큰 ── */
+:root {
+  --lw: 360px; --rw: 300px; --ticker-h: 44px;
+  --bg:       #080c14;
+  --s1:       #0d1424;
+  --s2:       #121d32;
+  --s3:       #192540;
+  --s4:       #1e2d4a;
+  --border:   rgba(99,130,183,0.12);
+  --border2:  rgba(99,130,183,0.22);
+  --text:     #e2e8f0;
+  --muted:    #4e6080;
+  --muted2:   #7b92b2;
+  --accent:   #3b82f6;
+  --accent2:  #60a5fa;
+  --danger:   #ef4444;
+  --danger2:  #fca5a5;
+  --warning:  #f59e0b;
+  --warning2: #fcd34d;
+  --success:  #10b981;
+  --success2:  #6ee7b7;
+  --purple:   #8b5cf6;
+  --purple2:  #c4b5fd;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Pretendard',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+
+/* ── 지도 ── */
+#map{position:absolute;inset:0 0 var(--ticker-h) var(--lw);z-index:0}
+
+/* ── 좌 패널 ── */
+.lpanel{
+  position:absolute;top:0;left:0;bottom:var(--ticker-h);width:var(--lw);
+  z-index:20;background:rgba(8,12,20,0.96);backdrop-filter:blur(24px);
+  border-right:1px solid var(--border2);display:flex;flex-direction:column;overflow:hidden;
+}
+
+/* ── 우 패널 ── */
+.rpanel{
+  position:absolute;top:0;right:0;bottom:var(--ticker-h);width:var(--rw);
+  z-index:20;background:rgba(8,12,20,0.94);backdrop-filter:blur(20px);
+  border-left:1px solid var(--border2);display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+}
+.rpanel.open{transform:translateX(0)}
+
+/* ── 티커 바 ── */
+.ticker-bar{
+  position:absolute;bottom:0;left:var(--lw);right:0;height:var(--ticker-h);
+  z-index:20;background:var(--s1);border-top:1px solid var(--border2);
+  display:flex;align-items:center;gap:0;overflow:hidden;
+}
+.ticker-label{
+  padding:0 16px;font-size:10px;font-weight:800;letter-spacing:.1em;
+  color:var(--accent2);text-transform:uppercase;white-space:nowrap;
+  border-right:1px solid var(--border2);height:100%;display:flex;align-items:center;
+  background:var(--s2);flex-shrink:0;
+}
+.ticker-track{flex:1;overflow:hidden;position:relative;height:100%}
+.ticker-inner{
+  display:flex;align-items:center;height:100%;
+  animation:ticker-scroll 30s linear infinite;white-space:nowrap;
+}
+@keyframes ticker-scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.ticker-event{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:0 28px;font-size:12px;height:100%;
+  border-right:1px solid var(--border);
+}
+.ticker-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* ── 공통 헤더/섹션 ── */
+.ph{padding:18px 18px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.ph-row{display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{
+  width:32px;height:32px;border-radius:9px;
+  background:linear-gradient(135deg,#2563eb,#7c3aed);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.logo-name{font-size:14px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.logo-sub{font-size:10px;color:var(--muted2);margin-top:1px}
+.live-pill{
+  display:flex;align-items:center;gap:5px;padding:4px 9px;
+  border-radius:50px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);
+  font-size:10px;font-weight:800;color:var(--success2);flex-shrink:0;
+}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--success);animation:p 2s infinite}
+@keyframes p{0%{box-shadow:0 0 0 0 rgba(16,185,129,.6)}70%{box-shadow:0 0 0 6px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
+
+/* ── 통계 ── */
+.stat-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sc{background:var(--s2);border:1px solid var(--border);border-radius:11px;padding:11px 13px;position:relative;overflow:hidden;cursor:default}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:2px}
+.sc.g::before{background:var(--success)}.sc.b::before{background:var(--accent)}
+.sc.r::before{background:var(--danger)}.sc.y::before{background:var(--warning)}.sc.v::before{background:var(--purple)}
+.sv{font-size:24px;font-weight:800;letter-spacing:-.04em;line-height:1;transition:.3s}
+.sc.g .sv{color:var(--success2)}.sc.b .sv{color:var(--accent2)}
+.sc.r .sv{color:var(--danger2)}.sc.y .sv{color:var(--warning2)}.sc.v .sv{color:var(--purple2)}
+.sk{font-size:10px;color:var(--muted2);margin-top:3px}
+.sc-trend{position:absolute;right:10px;top:50%;transform:translateY(-50%);opacity:.15;font-size:28px}
+
+/* ── 탭 ── */
+.tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--s1)}
+.tab{
+  flex:1;padding:10px 4px;background:none;border:none;cursor:pointer;
+  font-size:11px;font-weight:700;color:var(--muted2);
+  border-bottom:2px solid transparent;transition:.15s;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  font-family:'Pretendard',sans-serif;
+}
+.tab.on{color:var(--accent2);border-bottom-color:var(--accent)}
+.tab:hover:not(.on){color:var(--text)}
+.tc{flex:1;overflow-y:auto;display:none;flex-direction:column}
+.tc.on{display:flex}
+.tc::-webkit-scrollbar{width:3px}
+.tc::-webkit-scrollbar-thumb{background:var(--s4);border-radius:3px}
+
+/* ── 섹션 ── */
+.sec{padding:12px 14px;border-bottom:1px solid var(--border)}
+.sec-title{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:9px;display:flex;align-items:center;gap:6px}
+.sec-count{margin-left:auto;background:var(--s3);padding:1px 6px;border-radius:4px;font-size:9px;color:var(--muted2)}
+
+/* ── 도구 ── */
+.tool-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.tool-btn{
+  padding:11px 5px;border-radius:10px;border:1px solid var(--border2);
+  background:var(--s2);cursor:pointer;transition:.15s;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  font-size:10px;font-weight:700;color:var(--muted2);font-family:'Pretendard',sans-serif;
+}
+.tool-btn:hover{background:var(--s3);color:var(--text);transform:translateY(-1px)}
+.tool-btn.on{background:rgba(59,130,246,.12);border-color:var(--accent);color:var(--accent2)}
+.ti{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* ── 구역 리스트 ── */
+.zone-list{display:flex;flex-direction:column;gap:5px}
+.zi{
+  display:flex;align-items:center;gap:9px;padding:9px 11px;
+  border-radius:9px;background:var(--s2);border:1px solid var(--border);
+  font-size:11px;cursor:pointer;transition:.15s;
+}
+.zi:hover{border-color:var(--border2);background:var(--s3)}
+.zi.selected{border-color:var(--accent);background:rgba(59,130,246,.08)}
+.zdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.zname{flex:1;font-weight:600}
+.ztag{font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px}
+.zdel{width:20px;height:20px;border-radius:5px;border:none;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0}
+.zdel:hover{background:rgba(239,68,68,.15);color:var(--danger2)}
+
+/* ── 직원 ── */
+.wi{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:9px;background:var(--s2);border:1px solid var(--border);font-size:11px;transition:.15s;cursor:pointer}
+.wi:hover{border-color:var(--border2);background:var(--s3)}
+.av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.wn{flex:1;font-weight:600;font-size:11px}
+.wt{font-size:9px;color:var(--muted);margin-top:1px}
+.ws{font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px}
+.ws-safe{background:rgba(16,185,129,.15);color:var(--success2)}
+.ws-danger{background:rgba(239,68,68,.15);color:var(--danger2);animation:blink .8s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+.ws-idle{background:rgba(100,116,139,.15);color:var(--muted2)}
+
+/* ── 위반 피드 (우측 패널) ── */
+.vfeed{display:flex;flex-direction:column;gap:5px}
+.vitem{
+  padding:10px 12px;border-radius:9px;background:var(--s2);
+  border:1px solid var(--border);border-left:3px solid var(--danger);
+  font-size:11px;animation:fadein .25s ease;
+}
+.vitem.safe{border-left-color:var(--warning)}
+@keyframes fadein{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.vi-name{font-weight:700;margin-bottom:3px}
+.vi-type{font-size:10px;color:var(--danger2);margin-bottom:2px}
+.vi-type.safe{color:var(--warning2)}
+.vi-time{font-size:9px;color:var(--muted)}
+
+/* ── 로그 ── */
+.log-box{flex:1;padding:10px 12px;font-family:'Menlo','Monaco',monospace;overflow-y:auto}
+.log-box::-webkit-scrollbar{width:3px}
+.log-box::-webkit-scrollbar-thumb{background:var(--s4);border-radius:3px}
+.le{font-size:10px;line-height:1.7;display:flex;gap:7px;border-bottom:1px solid rgba(255,255,255,.02);padding:2px 0}
+.lt{color:var(--muted);flex-shrink:0}
+.lm{color:var(--muted2)}
+.lm.d{color:var(--danger2)}.lm.w{color:var(--warning2)}.lm.s{color:var(--success2)}.lm.i{color:var(--accent2)}
+
+/* ── 우 패널 공통 ── */
+.rph{padding:14px 16px 12px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.rph-title{font-size:13px;font-weight:700}
+.rph-close{width:26px;height:26px;border-radius:7px;border:none;background:var(--s3);color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.rph-close:hover{background:var(--s4);color:var(--text)}
+.rpanel .tc{flex:1;overflow-y:auto;display:none;flex-direction:column}
+.rpanel .tc.on{display:flex}
+.rpanel .tabs{background:var(--s1)}
+
+/* ── 하단 버튼들 ── */
+.footer{padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:6px}
+.fbtn{
+  flex:1;padding:10px;border-radius:9px;border:1px solid var(--border2);
+  background:var(--s2);color:var(--muted2);font-size:11px;font-weight:700;
+  cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;gap:5px;
+  font-family:'Pretendard',sans-serif;
+}
+.fbtn:hover{background:var(--s3);color:var(--text)}
+.fbtn.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.fbtn.p:hover{background:#2563eb}
+.fbtn.ds{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.2);color:var(--danger2)}
+.fbtn.ds:hover{background:rgba(239,68,68,.2)}
+
+/* ── 플로팅 지도 컨트롤 ── */
+.map-btns{
+  position:absolute;top:14px;
+  right:calc(var(--rw-open, 0px) + 14px);
+  z-index:15;display:flex;flex-direction:column;gap:5px;
+  transition:right .28s cubic-bezier(.4,0,.2,1);
+}
+.mb{
+  width:36px;height:36px;border-radius:9px;
+  background:rgba(8,12,20,.88);backdrop-filter:blur(12px);
+  border:1px solid var(--border2);color:var(--muted2);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;
+}
+.mb:hover{background:var(--s2);color:var(--text)}
+.mb.on{background:rgba(59,130,246,.15);border-color:var(--accent);color:var(--accent2)}
+.mb-divider{height:1px;background:var(--border);margin:3px 0}
+.map-type-group{background:rgba(8,12,20,.88);backdrop-filter:blur(12px);border:1px solid var(--border2);border-radius:9px;overflow:hidden}
+.map-type-group .mb{border-radius:0;border:none;border-bottom:1px solid var(--border);width:36px;height:32px}
+.map-type-group .mb:last-child{border-bottom:none}
+
+/* ── SOS 버튼 ── */
+.sos-btn{
+  position:absolute;bottom:calc(var(--ticker-h) + 14px);
+  left:calc(var(--lw) + 14px);
+  z-index:15;
+  padding:10px 18px;border-radius:12px;
+  background:rgba(127,29,29,.85);backdrop-filter:blur(12px);
+  border:1.5px solid rgba(239,68,68,.5);
+  color:var(--danger2);font-size:12px;font-weight:800;
+  cursor:pointer;display:flex;align-items:center;gap:8px;
+  transition:.15s;letter-spacing:.04em;font-family:'Pretendard',sans-serif;
+  animation:sos-idle 3s ease infinite;
+}
+.sos-btn:hover{background:rgba(153,27,27,.9);border-color:var(--danger);animation:none;transform:scale(1.02)}
+@keyframes sos-idle{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.3)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+.sos-active{animation:sos-ring 0.4s 5 !important;background:rgba(153,27,27,.95) !important}
+/* 긴급 작업자 마커 깜빡임 */
+@keyframes mk-emergency{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.7)}50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}}
+.mk-emergency-pulse{animation:mk-emergency .7s infinite !important;background:#ef4444 !important;border-color:#fff200 !important;}
+@keyframes sos-ring{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.8)}50%{box-shadow:0 0 0 16px rgba(239,68,68,0)}}
+
+/* ── 토스트 ── */
+#toasts{position:absolute;top:14px;left:calc(var(--lw) + 14px);z-index:100;display:flex;flex-direction:column;gap:7px;pointer-events:none;max-width:320px}
+.toast{
+  background:var(--s1);border:1px solid var(--border2);border-radius:12px;
+  padding:12px 14px;display:flex;gap:11px;align-items:flex-start;
+  pointer-events:auto;backdrop-filter:blur(16px);
+  animation:tin .3s cubic-bezier(.34,1.56,.64,1) forwards;
+  transition:opacity .25s,transform .25s;
+}
+.toast.d{border-left:3px solid var(--danger);background:rgba(90,20,20,.7)}
+.toast.w{border-left:3px solid var(--warning);background:rgba(90,55,10,.7)}
+.toast.s{border-left:3px solid var(--success)}
+@keyframes tin{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
+.ti2{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.toast.d .ti2{background:rgba(239,68,68,.2);color:var(--danger2)}
+.toast.w .ti2{background:rgba(245,158,11,.2);color:var(--warning2)}
+.toast.s .ti2{background:rgba(16,185,129,.2);color:var(--success2)}
+.ttitle{font-size:12px;font-weight:800;margin-bottom:2px}
+.tbody{font-size:11px;color:var(--muted2)}
+
+/* ── 연결 상태 ── */
+#conn{
+  position:absolute;bottom:calc(var(--ticker-h) + 10px);right:calc(var(--rw-open,0px) + 12px);
+  z-index:15;background:rgba(8,12,20,.88);backdrop-filter:blur(12px);
+  border:1px solid var(--border2);border-radius:8px;
+  padding:5px 11px;font-size:10px;font-weight:700;
+  display:flex;align-items:center;gap:6px;color:var(--muted2);
+  transition:right .28s cubic-bezier(.4,0,.2,1);
+}
+
+/* ── 팝업 (직원/구역 클릭) ── */
+.popup-overlay{
+  position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.5);backdrop-filter:blur(4px);
+  opacity:0;pointer-events:none;transition:.2s;
+}
+.popup-overlay.show{opacity:1;pointer-events:auto}
+.popup{
+  background:var(--s1);border:1px solid var(--border2);border-radius:16px;
+  width:320px;overflow:hidden;
+  transform:scale(.95);transition:.2s cubic-bezier(.34,1.56,.64,1);
+}
+.popup-overlay.show .popup{transform:scale(1)}
+.pop-header{padding:16px 18px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.pop-av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0}
+.pop-body{padding:14px 18px;display:flex;flex-direction:column;gap:10px}
+.pop-row{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+.pop-key{color:var(--muted2)}
+.pop-val{font-weight:700}
+.pop-footer{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:7px}
+.pop-btn{flex:1;padding:9px;border-radius:8px;border:1px solid var(--border2);background:var(--s2);color:var(--muted2);font-size:11px;font-weight:700;cursor:pointer;transition:.15s;font-family:'Pretendard',sans-serif}
+.pop-btn:hover{background:var(--s3);color:var(--text)}
+.pop-btn.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.pop-btn.p:hover{background:#2563eb}
+
+/* ── 경보 플래시 ── */
+#flash{position:absolute;inset:0;z-index:19;pointer-events:none;opacity:0}
+#flash.on{animation:flash-anim .5s 3}
+@keyframes flash-anim{0%,100%{box-shadow:inset 0 0 0 5px rgba(239,68,68,0);opacity:1}50%{box-shadow:inset 0 0 0 5px rgba(239,68,68,.55)}}
+
+/* ── 빈 상태 ── */
+.empty{text-align:center;color:var(--muted);font-size:11px;padding:22px 10px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.empty-icon{opacity:.2}
+
+/* ── 검색 ── */
+.search-wrap{padding:10px 14px;border-bottom:1px solid var(--border)}
+.search-input{
+  width:100%;padding:8px 12px;border-radius:8px;
+  border:1px solid var(--border2);background:var(--s3);
+  color:var(--text);font-size:11px;outline:none;
+  font-family:'Pretendard',sans-serif;transition:.15s;
+}
+.search-input:focus{border-color:var(--accent);background:var(--s4)}
+.search-input::placeholder{color:var(--muted)}
+
+/* ── 필터 칩 ── */
+.chips{display:flex;gap:5px;padding:0 14px 10px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.chip{padding:4px 10px;border-radius:50px;border:1px solid var(--border2);background:var(--s2);color:var(--muted2);font-size:10px;font-weight:700;cursor:pointer;transition:.15s}
+.chip:hover{color:var(--text);border-color:var(--border2)}
+.chip.on{background:rgba(59,130,246,.15);border-color:var(--accent);color:var(--accent2)}
+
+/* ── 사운드 토글 ── */
+.sound-toggle{
+  display:flex;align-items:center;gap:7px;padding:9px 14px;
+  border-bottom:1px solid var(--border);font-size:11px;color:var(--muted2);
+  cursor:pointer;
+}
+.sound-toggle:hover{color:var(--text)}
+.toggle-track{position:relative;width:28px;height:16px;background:var(--muted);border-radius:8px;transition:.2s;flex-shrink:0}
+.toggle-track.on{background:var(--accent)}
+.toggle-thumb{position:absolute;top:2px;left:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:.2s}
+.toggle-track.on .toggle-thumb{left:14px}
+</style>
+
+<script>
+if (window.self !== window.top) {
+    const style = document.createElement('style');
+    style.innerHTML = `
+        /* 1. 좌측/우측 패널, 하단 티커바, 맵 컨트롤러, 비상버튼, 연결상태 숨기기 */
+        .lpanel, .rpanel, .ticker-bar, .map-btns, .sos-btn, #conn, #toasts { 
+            display: none !important; 
+        }
+        
+        /* 2. 지도가 화면의 100% 꽉 차도록 여백 및 z-index 설정 */
+        #map { 
+            inset: 0 !important; 
+            width: 100% !important; 
+            height: 100% !important; 
+            z-index: 1 !important; 
+        }
+    `;
+    document.head.appendChild(style);
+}
+</script>
+
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=37c3cc65a1b723559012267412836230&libraries=drawing"></script>
+</head>
+<body>
+
+<!-- [카카오맵 렌더링 영역] 실제 지도가 표시되는 전체화면 div -->
+<div id="map"></div>
+<div id="flash"></div>
+<div id="toasts"></div>
+
+<div class="lpanel">
+  <div class="ph">
+    <div class="ph-row">
+      <div class="logo">
+        <div class="logo-icon"><i data-lucide="shield-check" size="16" color="#fff"></i></div>
+        <div><div class="logo-name">안전 관제 센터</div><div class="logo-sub">{{ user_name }} · Safety Command</div></div>
+      </div>
+      <div class="live-pill"><span class="pulse"></span>LIVE</div>
+    </div>
+  </div>
+
+  <div class="stat-row" style="grid-template-columns:1fr 1fr">
+    <div class="sc g"><div class="sv" id="sv-on">0</div><div class="sk">현장 인원</div><div class="sc-trend">👷</div></div>
+    <div class="sc r"><div class="sv" id="sv-al">0</div><div class="sk">위험 경보</div><div class="sc-trend">⚠</div></div>
+  </div>
+  <div class="stat-row" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="sc b"><div class="sv" id="sv-zn">0</div><div class="sk">설정 구역</div></div>
+    <div class="sc y"><div class="sv" id="sv-ck">0</div><div class="sk">출근 확인</div></div>
+    <div class="sc v"><div class="sv" id="sv-vl">0</div><div class="sk">일일 위반</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" onclick="lt('zones',this)"><i data-lucide="map-pin" size="11"></i>구역</button>
+    <button class="tab" onclick="lt('workers',this)"><i data-lucide="users" size="11"></i>인원</button>
+    <button class="tab" onclick="lt('logs',this)"><i data-lucide="terminal" size="11"></i>로그</button>
+    <button class="tab" onclick="lt('settings',this)"><i data-lucide="settings-2" size="11"></i>설정</button>
+  </div>
+
+  <div class="tc on" id="tc-zones">
+    <div class="sec">
+      <div class="sec-title"><i data-lucide="pen-tool" size="10"></i>그리기 도구</div>
+      <div class="tool-grid" style="grid-template-columns: 1fr 1fr; gap: 6px;">
+        <button class="tool-btn" id="tbtn-d" onclick="startDraw('#ef4444','DANGER','위험구역')">
+          <div class="ti" style="background:rgba(239,68,68,.15)"><i data-lucide="shield-alert" size="13" color="#fca5a5"></i></div>위험구역
+        </button>
+        <button class="tool-btn" id="tbtn-c" onclick="startDraw('#3b82f6','CONSTRUCTION','공사구역')">
+          <div class="ti" style="background:rgba(59,130,246,.15)"><i data-lucide="cone" size="13" color="#60a5fa"></i></div>공사구역
+        </button>
+        <button class="tool-btn" id="tbtn-a" onclick="startDraw('#f59e0b','ATTENDANCE','근무지')">
+          <div class="ti" style="background:rgba(245,158,11,.15)"><i data-lucide="user-check" size="13" color="#fcd34d"></i></div>근무지
+        </button>
+        <button class="tool-btn" id="tbtn-s" onclick="startDraw('#10b981','SAFE','안전구역')">
+          <div class="ti" style="background:rgba(16,185,129,.15)"><i data-lucide="shield-check" size="13" color="#6ee7b7"></i></div>안전구역
+        </button>
+      </div>
+    </div>
+    <div class="sec" style="flex:1;overflow-y:auto">
+      <div class="sec-title"><i data-lucide="layers" size="10"></i>구역 목록<span class="sec-count" id="zc">0</span></div>
+      <div class="zone-list" id="zoneList">
+        <div class="empty"><div class="empty-icon"><i data-lucide="map" size="28"></i></div>구역을 그려 모니터링 시작</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tc" id="tc-workers">
+    <div class="search-wrap">
+      <input class="search-input" id="worker-search" placeholder="이름·이메일 검색..." oninput="filterWorkers()">
+    </div>
+    <div class="chips" id="worker-chips">
+      <div class="chip on" onclick="setWorkerFilter('all',this)">전체</div>
+      <div class="chip" onclick="setWorkerFilter('danger',this)">위험</div>
+      <div class="chip" onclick="setWorkerFilter('emergency',this)" style="color:#fca5a5;">🚨 긴급</div>
+      <div class="chip" onclick="setWorkerFilter('safe',this)">정상</div>
+    </div>
+    <div class="sec" style="flex:1;overflow-y:auto;border-bottom:none">
+      <div class="sec-title"><i data-lucide="activity" size="10"></i>실시간 현황<span class="sec-count" id="wc">0명</span></div>
+      <div style="display:flex;flex-direction:column;gap:5px" id="workerList">
+        <div class="empty"><div class="empty-icon"><i data-lucide="user-x" size="28"></i></div>현장 인원 없음</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tc" id="tc-logs">
+    <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border)">
+      <button class="fbtn ds" style="flex:0 0 auto;padding:6px 10px;font-size:10px" onclick="document.getElementById('log-box').innerHTML=''">
+        <i data-lucide="trash-2" size="12"></i>지우기
+      </button>
+    </div>
+    <div class="log-box" id="log-box"></div>
+  </div>
+
+  <div class="tc" id="tc-settings">
+    <div class="sound-toggle" onclick="toggleSound()">
+      <div class="toggle-track" id="sound-track"><div class="toggle-thumb"></div></div>
+      <span>위험 경보 알림음</span>
+    </div>
+    <div class="sound-toggle" onclick="toggleTrail()">
+      <div class="toggle-track" id="trail-track"><div class="toggle-thumb"></div></div>
+      <span>이동 경로 표시</span>
+    </div>
+    <div class="sound-toggle" onclick="toggleAutoCenter()">
+      <div class="toggle-track" id="ac-track"><div class="toggle-thumb"></div></div>
+      <span>위험 감지 시 자동 이동</span>
+    </div>
+    <div class="sec">
+      <div class="sec-title">폴링 간격</div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:11px;color:var(--muted2)">
+        <input type="range" min="3" max="30" value="5" id="poll-range" style="flex:1" oninput="setPollInterval(this.value)">
+        <span id="poll-val" style="min-width:32px;font-weight:700;color:var(--text)">5초</span>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-title">지도 유형</div>
+      <div class="tool-grid">
+        <button class="tool-btn on" id="mtype-normal" onclick="setMapType('normal',this)">
+          <div class="ti" style="background:rgba(59,130,246,.15)"><i data-lucide="map" size="13" color="#60a5fa"></i></div>일반
+        </button>
+        <button class="tool-btn" id="mtype-sky" onclick="setMapType('skyview',this)">
+          <div class="ti" style="background:rgba(16,185,129,.15)"><i data-lucide="satellite" size="13" color="#6ee7b7"></i></div>스카이뷰
+        </button>
+        <button class="tool-btn" id="mtype-hybrid" onclick="setMapType('hybrid',this)">
+          <div class="ti" style="background:rgba(139,92,246,.15)"><i data-lucide="layers" size="13" color="#c4b5fd"></i></div>하이브리드
+        </button>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-title">구역 쿨다운</div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:11px;color:var(--muted2)">
+        <input type="range" min="10" max="300" value="30" id="cd-range" style="flex:1" oninput="setCooldown(this.value)">
+        <span id="cd-val" style="min-width:36px;font-weight:700;color:var(--text)">30초</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <button onclick="location.href='/index'" class="fbtn" style="flex:0.5;" title="대시보드로 돌아가기"><i data-lucide="home" size="13"></i></button>
+    {% if is_admin %}
+    <button class="fbtn p" onclick="saveZones()"><i data-lucide="save" size="13"></i>저장</button>
+    {% else %}
+    <button class="fbtn" disabled title="관리자만 저장 가능" style="opacity:.4;cursor:not-allowed"><i data-lucide="lock" size="13"></i>저장</button>
+    {% endif %}
+    <button class="fbtn" onclick="downloadTxt()"><i data-lucide="download" size="13"></i>TXT</button>
+    <button class="fbtn" onclick="downloadViolationsCsv()"><i data-lucide="file-text" size="13"></i>CSV</button>
+    <button class="fbtn ds" onclick="clearAll()"><i data-lucide="trash-2" size="13"></i></button>
+  </div>
+</div>
+
+<div class="rpanel" id="rpanel">
+  <div class="rph">
+    <div class="rph-title">⚠ 위반 피드</div>
+    <button class="rph-close" onclick="closeRight()"><i data-lucide="x" size="14"></i></button>
+  </div>
+  <div class="tabs">
+    <button class="tab on" onclick="rt('vfeed',this)"><i data-lucide="alert-triangle" size="11"></i>위반</button>
+    <button class="tab" onclick="rt('vstats',this)"><i data-lucide="bar-chart-2" size="11"></i>분석</button>
+  </div>
+  <div class="tc on" id="tc-vfeed" style="padding:10px 12px">
+    <div class="vfeed" id="vFeed">
+      <div class="empty"><div class="empty-icon"><i data-lucide="check-circle" size="28"></i></div>위반 기록 없음</div>
+    </div>
+  </div>
+  <div class="tc" id="tc-vstats" style="padding:10px 12px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:10px;color:var(--muted2);margin-bottom:6px;font-weight:700">구역별 진입 횟수</div>
+        <div id="zone-stats"></div>
+      </div>
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:10px;color:var(--muted2);margin-bottom:6px;font-weight:700">최근 24시간 경보</div>
+        <div style="font-size:28px;font-weight:800;color:var(--danger2)" id="r24h">0</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">위험구역 진입 감지</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="map-btns" id="map-btns">
+  <div class="map-type-group">
+    <button class="mb on" title="일반" onclick="setMapType('normal',null)"><i data-lucide="map" size="14"></i></button>
+    <button class="mb" title="스카이뷰" onclick="setMapType('skyview',null)"><i data-lucide="satellite" size="14"></i></button>
+    <button class="mb" title="하이브리드" onclick="setMapType('hybrid',null)"><i data-lucide="layers" size="14"></i></button>
+  </div>
+  <div class="mb-divider"></div>
+  <button class="mb" title="확대" onclick="map.setLevel(map.getLevel()-1)"><i data-lucide="plus" size="14"></i></button>
+  <button class="mb" title="축소" onclick="map.setLevel(map.getLevel()+1)"><i data-lucide="minus" size="14"></i></button>
+  <button class="mb" title="현장 중심" onclick="map.setCenter(CENTER);map.setLevel(3)"><i data-lucide="locate" size="14"></i></button>
+  <div class="mb-divider"></div>
+  <button class="mb" id="rpanel-toggle" title="위반 피드" onclick="toggleRight()"><i data-lucide="alert-triangle" size="14"></i></button>
+</div>
+
+<button class="sos-btn" id="sos-btn" onclick="triggerSOS()">
+  <i data-lucide="siren" size="15"></i> 비상 방송
+</button>
+
+<div id="conn"><span id="conn-dot" class="pulse" style="width:6px;height:6px;background:var(--success)"></span><span id="conn-txt">연결 중...</span></div>
+
+<div class="ticker-bar">
+  <div class="ticker-label"><i data-lucide="radio" size="10"></i>&nbsp;EVENTS</div>
+  <div class="ticker-track"><div class="ticker-inner" id="ticker"></div></div>
+</div>
+
+<div class="popup-overlay" id="popup-overlay" onclick="if(event.target===this)closePopup()">
+  <div class="popup" id="popup">
+    <div class="pop-header">
+      <div class="pop-av" id="pop-av"></div>
+      <div><div style="font-size:14px;font-weight:800" id="pop-name"></div><div style="font-size:11px;color:var(--muted2)" id="pop-sub"></div></div>
+    </div>
+    <div class="pop-body" id="pop-body"></div>
+    <div class="pop-footer" id="pop-footer"></div>
+  </div>
+</div>
+
+<style>
+  .cz-form{padding:14px 18px;display:flex;flex-direction:column;gap:11px}
+  .cz-field{display:flex;flex-direction:column;gap:5px}
+  .cz-label{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:6px}
+  .cz-label .req{color:var(--danger2);font-size:10px}
+  .cz-label .opt{color:var(--muted2);font-size:9px;font-weight:600;letter-spacing:0;text-transform:none}
+  .cz-input{
+    width:100%;padding:9px 11px;border-radius:8px;
+    border:1px solid var(--border2);background:var(--s3);
+    color:var(--text);font-size:12px;outline:none;
+    font-family:'Pretendard',sans-serif;transition:.15s;
+  }
+  .cz-input:focus{border-color:var(--accent);background:var(--s4)}
+  .cz-input::placeholder{color:var(--muted)}
+  .cz-row2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .cz-hint{font-size:10px;color:var(--muted2);line-height:1.5;margin-top:-2px}
+</style>
+<div class="popup-overlay" id="cz-popup-overlay" onclick="if(event.target===this)cancelConstructionDetails()">
+  <div class="popup" style="width:360px">
+    <div class="pop-header" style="background:rgba(59,130,246,.08)">
+      <div class="pop-av" style="background:rgba(59,130,246,.2);color:#60a5fa;border:2px solid rgba(59,130,246,.4)">
+        <i data-lucide="cone" size="18"></i>
+      </div>
+      <div>
+        <div style="font-size:14px;font-weight:800">공사구역 상세 설정</div>
+        <div style="font-size:11px;color:var(--muted2)">층 예측 및 공사 기간 등록</div>
+      </div>
+    </div>
+    <div class="cz-form">
+      <div class="cz-field">
+        <label class="cz-label">구역 이름 <span class="req">*</span> <span class="opt">(중복 시 덮어쓰기 — Primary Key)</span></label>
+        <input class="cz-input" id="cz-name" placeholder="예: A동 3층 외벽 보수" maxlength="100">
+      </div>
+      <div class="cz-field">
+        <label class="cz-label">기준 고도 (m) <span class="req">*</span> <span class="opt">(1층 바닥의 GPS 고도)</span></label>
+        <input class="cz-input" id="cz-base" type="number" step="0.1" placeholder="예: 32.5">
+        <div class="cz-hint">작업자 GPS 고도와 비교해 몇 층인지 자동 계산됩니다.</div>
+      </div>
+      <div class="cz-field">
+        <label class="cz-label">층간 높이 (m) <span class="opt">(선택 — 비우면 층 예측 비활성)</span></label>
+        <input class="cz-input" id="cz-floor" type="number" step="0.1" placeholder="예: 3.0">
+      </div>
+      <div class="cz-row2">
+        <div class="cz-field">
+          <label class="cz-label">공사 시작</label>
+          <input class="cz-input" id="cz-start" type="date">
+        </div>
+        <div class="cz-field">
+          <label class="cz-label">공사 마감</label>
+          <input class="cz-input" id="cz-end" type="date">
+        </div>
+      </div>
+    </div>
+    <div class="pop-footer">
+      <button class="pop-btn" onclick="cancelConstructionDetails()">취소</button>
+      <button class="pop-btn p" onclick="confirmConstructionDetails()"><i data-lucide="save" size="12"></i> 저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+renderIcons();
+
+// ★ [서버 주입] Jinja2가 Python 변수(is_admin 등)를 JS로 전달하는 구간
+// ── 서버 주입 변수 ──
+const SERVER_USER  = "{{ user_name }}";
+const SERVER_ADMIN = {{ 'true' if is_admin else 'false' }};
+
+// ══════════════════════════════════════════════
+// 지도 (협성대 중심 좌표 유지)
+// ══════════════════════════════════════════════
+const CENTER = new kakao.maps.LatLng(37.211783, 126.953030);
+const map = new kakao.maps.Map(document.getElementById('map'), { center: CENTER, level: 3 });
+const manager = new kakao.maps.drawing.DrawingManager({
+  map, drawingMode:[kakao.maps.drawing.OverlayType.POLYGON],
+  polygonOptions:{ draggable:true, removable:true, editable:true, strokeWeight:2.5, fillOpacity:.28 }
+});
+
+// 상태 변수들
+let zones=[], markers={}, workers={}, violations=[];
+let alertCnt=0, checkedCnt=0, violTotalCnt=0;
+let workerFilter='all', workerSearch='';
+let soundOn=true, trailOn=false, autoCenterOn=true;
+let cooldownMs=30000, pollInterval=5000, pollTimer=null;
+let rightOpen=false;
+let trails={}, trailLines={}; 
+const COLORS=['#3b82f6','#8b5cf6','#ec4899','#f97316','#06b6d4','#84cc16','#a78bfa','#fb7185'];
+let cIdx=0; const uColors={};
+const TYPE_META={
+  DANGER:       {label:'위험',bg:'rgba(239,68,68,.15)',col:'#fca5a5'},
+  CONSTRUCTION: {label:'공사',bg:'rgba(59,130,246,.15)',col:'#60a5fa'},
+  ATTENDANCE:   {label:'출근',bg:'rgba(245,158,11,.15)',col:'#fcd34d'},
+  SAFE:         {label:'안전',bg:'rgba(16,185,129,.15)',col:'#6ee7b7'},
+};
+const zoneEntryCounts={}, alertCooldowns={};
+let tickerEvents=[];
+const WORKER_TTL = 5*60*1000;
+
+// ── 구역 상태 업데이트 (대시보드 연동) ──
+const _statusTimers = {};
+const _lastReportedStatus = {};
+
+// ✅ 백엔드 worker_status_list/tables 의 키워드 매칭(예: "공사" in status)이 작동하도록
+//    타입별 한글 prefix 를 붙여서 전송. 형식: "공사구역 - 이공관"
+const _STATUS_TYPE_PREFIX = {
+  DANGER:       '위험구역',
+  CONSTRUCTION: '공사구역',
+  ATTENDANCE:   '근무지',
+  SAFE:         '안전구역'
+};
+
+// [작업자 구역 보고] 마커가 구역 폴리곤 안에 들어오면 /api/update_worker_status 호출
+function reportWorkerZone(uid, zoneLabel, zoneType) {
+  // 같은 상태면 재전송 안함
+  const key = `${zoneLabel}|${zoneType}`;
+  if (_lastReportedStatus[uid] === key) return;
+  
+  // ✅ DB에 저장될 status 문자열: 키워드 포함 + 실제 구역명 함께 (예: "공사구역 - 이공관")
+  const prefix = _STATUS_TYPE_PREFIX[zoneType];
+  let statusText;
+  if (zoneType === 'ONSITE') {
+    statusText = '현장 근무';
+  } else if (prefix) {
+    statusText = `${prefix} - ${zoneLabel}`;
+  } else {
+    statusText = zoneLabel || '출근중';
+  }
+  
+  if (_statusTimers[uid]) clearTimeout(_statusTimers[uid]);
+  _statusTimers[uid] = setTimeout(() => {
+    _lastReportedStatus[uid] = key;
+    fetch('/api/update_worker_status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: uid, status: statusText, zone_type: zoneType })
+    }).catch(e => console.warn('구역 상태 전송 실패:', e));
+  }, 1500);
+}
+
+// [마커 색상 할당] 작업자별 고유 색상 라운드로빈 할당
+function gc(uid){ if(!uColors[uid]) uColors[uid]=COLORS[cIdx++%COLORS.length]; return uColors[uid]; }
+
+// ══════════════════════════════════════════════
+// 팝업, 탭, 알림창 통계 업데이트 함수들
+// ══════════════════════════════════════════════
+// [통계 카운터] 좌 패널 상단 현장인원/위험경보 카운터 갱신
+function updateStats(){
+  setText('sv-on', Object.keys(workers).length);
+  setText('sv-al', alertCnt);
+  setText('sv-zn', zones.length);
+  setText('sv-ck', checkedCnt);
+  setText('sv-vl', violTotalCnt);
+}
+// [DOM 텍스트 헬퍼] getElementById + textContent 단축 유틸
+function setText(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+
+// [좌 패널 탭] "작업자 목록" ↔ "구역 목록" 탭 전환
+function lt(name,btn){
+  document.querySelectorAll('.lpanel .tab').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.lpanel .tc').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('tc-'+name).classList.add('on');
+}
+// [우 패널 탭] "위반 피드" ↔ "구역 통계" 탭 전환
+function rt(name,btn){
+  document.querySelectorAll('.rpanel .tab').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.rpanel .tc').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('tc-'+name).classList.add('on');
+  if(name==='vstats') renderZoneStats();
+}
+// [우 패널 열기/닫기] 위반 피드 패널 슬라이드 토글
+function toggleRight(){
+  rightOpen=!rightOpen;
+  document.getElementById('rpanel').classList.toggle('open',rightOpen);
+  document.getElementById('rpanel-toggle').classList.toggle('on',rightOpen);
+  if(rightOpen) { fetchViolations(); renderZoneStats(); }
+}
+// [우 패널 강제 닫기]
+function closeRight(){ rightOpen=false; document.getElementById('rpanel').classList.remove('open'); document.getElementById('rpanel-toggle').classList.remove('on'); }
+
+// [지도 타입 전환] 일반지도 ↔ 스카이뷰 전환
+function setMapType(type, btnEl){
+  const types={ normal: kakao.maps.MapTypeId.ROADMAP, skyview: kakao.maps.MapTypeId.SKYVIEW, hybrid: kakao.maps.MapTypeId.HYBRID };
+  map.setMapTypeId(types[type]||kakao.maps.MapTypeId.ROADMAP);
+  document.querySelectorAll('[id^="mtype-"]').forEach(b=>b.classList.remove('on'));
+  const pid=document.getElementById('mtype-'+type); if(pid) pid.classList.add('on');
+  document.querySelectorAll('.map-type-group .mb').forEach(b=>b.classList.remove('on'));
+  if(btnEl) btnEl.classList.add('on');
+}
+
+// ══════════════════════════════════════════════
+// 구역 그리기
+// ══════════════════════════════════════════════
+let curType='SAFE', curLabel='안전구역', curColor='#10b981';
+// [구역 그리기] 카카오 drawing manager로 폴리곤 그리기 시작 (관리자 전용)
+function startDraw(color,type,label){
+  curType=type; curLabel=label; curColor=color;
+  manager.cancel();
+  manager.setStyle(kakao.maps.drawing.OverlayType.POLYGON,'fillColor',color);
+  manager.setStyle(kakao.maps.drawing.OverlayType.POLYGON,'strokeColor',color);
+  manager.select(kakao.maps.drawing.OverlayType.POLYGON);
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('on'));
+  document.getElementById({DANGER:'tbtn-d',CONSTRUCTION:'tbtn-c',ATTENDANCE:'tbtn-a',SAFE:'tbtn-s'}[type]).classList.add('on');
+}
+manager.addListener('drawend',function(d){
+  // ★ manager.getData()로 좌표 추출 (getPath()보다 안정적)
+  let plainPath = [];
+  try {
+    const data = manager.getData();
+    const polys = data[kakao.maps.drawing.OverlayType.POLYGON] || [];
+    if (polys.length > 0) {
+      const lastPoly = polys[polys.length - 1];
+      if (lastPoly.points && lastPoly.points.length > 0) {
+        const ring = Array.isArray(lastPoly.points[0]) ? lastPoly.points[0] : lastPoly.points;
+        plainPath = ring.map(p => ({ lat: p.y || p.lat, lng: p.x || p.lng }))
+                        .filter(c => c.lat && c.lng);
+      }
+    }
+  } catch(e) { console.error('getData 좌표 추출 실패:', e); }
+  
+  console.log('[drawend] 추출된 좌표:', plainPath.length + '개', plainPath);
+  
+  const newZone = { 
+    id: Date.now(), type: curType, label: curLabel, color: curColor, 
+    target: d.target, 
+    path: d.target.getPath(),
+    plainPath: plainPath, 
+    entries: 0,
+    details: null   // ✅ 공사구역의 경우 상세정보 저장 (기준고도/층간높이/기간)
+  };
+  zones.push(newZone);
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('on'));
+  addLog(`구역 추가됨: [${curLabel}] (좌표 ${plainPath.length}개)`,'i');
+  renderZones(); updateStats();
+  
+  // ✅ 공사구역이면 상세정보 입력 팝업 자동 표시
+  if (curType === 'CONSTRUCTION') {
+    openConstructionDetails(newZone);
+  } else {
+    toast(`구역 추가됨`,`${curLabel}이 설정되었습니다.`,'s');
+  }
+});
+
+// [구역 폴리곤 렌더] 저장된 구역 데이터를 지도 위에 색상별 폴리곤으로 그리기
+function renderZones(){
+  const el=document.getElementById('zoneList');
+  document.getElementById('zc').textContent=zones.length;
+  if(!zones.length){ 
+    el.innerHTML=`<div class="empty"><div class="empty-icon"><i data-lucide="map" size="28"></i></div>구역을 그려 모니터링 시작</div>`; 
+    renderIcons(); 
+    return; 
+  }
+  
+  el.innerHTML=zones.map((z,i)=>{
+    const m = TYPE_META[z.type] || TYPE_META['SAFE'];
+    return `<div class="zi" onclick="showZonePopup(${z.id})">
+      <div class="zdot" style="background:${z.color}"></div>
+      <span class="zname">${z.label} #${i+1}</span>
+      <span style="font-size:9px;color:var(--muted2);margin-right:4px">${z.entries||0}회</span>
+      <span class="ztag" style="background:${m.bg};color:${m.col}">${m.label}</span>
+      <button class="zdel" onclick="event.stopPropagation();delZone(${z.id})"><i data-lucide="x" size="11"></i></button>
+    </div>`;
+  }).join('');
+  renderIcons();
+}
+
+// ══════════════════════════════════════════════
+// 🚧 공사구역 상세 설정 팝업
+// ══════════════════════════════════════════════
+let _pendingConstructionZone = null;   // 그리기 직후 디테일 입력 대기 중인 구역
+
+// [공사구역 상세 팝업] 기준고도/층간높이/공사기간 입력 팝업
+function openConstructionDetails(zone, isEdit=false) {
+  _pendingConstructionZone = zone;
+  // 기본값 채우기
+  document.getElementById('cz-name').value  = zone.label || '';
+  document.getElementById('cz-base').value  = (zone.details && zone.details.base_altitude != null) ? zone.details.base_altitude : '';
+  document.getElementById('cz-floor').value = (zone.details && zone.details.floor_height != null) ? zone.details.floor_height : '';
+  document.getElementById('cz-start').value = (zone.details && zone.details.start_date) || '';
+  document.getElementById('cz-end').value   = (zone.details && zone.details.end_date)   || '';
+  document.getElementById('cz-popup-overlay').classList.add('show');
+  setTimeout(()=>document.getElementById('cz-name').focus(), 100);
+  renderIcons();
+}
+
+// [공사구역 취소] 신규 구역이면 구역 자체도 제거
+function cancelConstructionDetails() {
+  document.getElementById('cz-popup-overlay').classList.remove('show');
+  // 신규 작성 도중 취소면 → 구역 자체도 제거 (라벨/고도 없이는 의미 없음)
+  if (_pendingConstructionZone && !_pendingConstructionZone.details) {
+    delZone(_pendingConstructionZone.id);
+    addLog('공사구역 등록 취소','w');
+  }
+  _pendingConstructionZone = null;
+}
+
+// [공사구역 저장] POST /api/construction_zone → DB 저장 + 지도 폴리곤 갱신
+async function confirmConstructionDetails() {
+  const z = _pendingConstructionZone;
+  if (!z) { document.getElementById('cz-popup-overlay').classList.remove('show'); return; }
+
+  const name      = document.getElementById('cz-name').value.trim();
+  const baseStr   = document.getElementById('cz-base').value.trim();
+  const floorStr  = document.getElementById('cz-floor').value.trim();
+  const startDate = document.getElementById('cz-start').value || null;
+  const endDate   = document.getElementById('cz-end').value   || null;
+
+  if (!name) { alert('구역 이름은 필수입니다.'); document.getElementById('cz-name').focus(); return; }
+  if (baseStr === '') { alert('기준 고도는 필수입니다.'); document.getElementById('cz-base').focus(); return; }
+  const baseAlt = parseFloat(baseStr);
+  if (isNaN(baseAlt)) { alert('기준 고도는 숫자여야 합니다.'); return; }
+
+  let floorH = null;
+  if (floorStr !== '') {
+    floorH = parseFloat(floorStr);
+    if (isNaN(floorH) || floorH <= 0) { alert('층간 높이는 양수여야 합니다.'); return; }
+  }
+
+  if (startDate && endDate && startDate > endDate) {
+    alert('공사 마감일이 시작일보다 빠를 수 없습니다.'); return;
+  }
+
+  // 중복 이름 체크 (자기 자신 제외)
+  const dup = zones.find(x => x.id !== z.id && x.type === 'CONSTRUCTION' && x.label === name);
+  if (dup) {
+    if (!confirm(`'${name}'은(는) 이미 사용 중인 공사구역 이름입니다.\n덮어쓰시겠습니까? (기존 ${dup.label} 정보가 갱신됩니다)`)) return;
+  }
+
+  // 구역 메모리 업데이트
+  z.label = name;
+  z.details = {
+    base_altitude: baseAlt,
+    floor_height:  floorH,
+    start_date:    startDate,
+    end_date:      endDate
+  };
+
+  // DB에 상세정보 저장 (즉시)
+  try {
+    const r = await fetch('/api/construction_zone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        zone_name:     name,
+        base_altitude: baseAlt,
+        floor_height:  floorH,
+        start_date:    startDate,
+        end_date:      endDate
+      })
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(()=>({}));
+      alert('상세정보 저장 실패: ' + (e.error || r.status));
+    } else {
+      addLog(`🚧 공사구역 등록: ${name} (기준 ${baseAlt}m, 층간 ${floorH ?? '미지정'}m)`, 's');
+      toast('공사구역 등록 완료', `${name} 정보가 저장되었습니다.\n좌측 [저장] 버튼으로 폴리곤도 DB에 반영하세요.`, 's');
+    }
+  } catch (e) {
+    alert('서버 통신 오류: ' + e.message);
+  }
+
+  document.getElementById('cz-popup-overlay').classList.remove('show');
+  _pendingConstructionZone = null;
+  renderZones();
+}
+
+// ══════════════════════════════════════════════
+// 🗺 구역 리스트 클릭 → 정보 팝업
+// ══════════════════════════════════════════════
+function showZonePopup(zoneId) {
+  const z = zones.find(x => x.id === zoneId);
+  if (!z) return;
+  const m = TYPE_META[z.type] || TYPE_META['SAFE'];
+
+  // 지도 중심 이동(폴리곤 첫 좌표 기준)
+  if (z.plainPath && z.plainPath.length > 0) {
+    const c = z.plainPath[0];
+    map.setCenter(new kakao.maps.LatLng(c.lat, c.lng));
+  }
+
+  document.getElementById('pop-av').innerHTML = `<i data-lucide="${z.type==='DANGER'?'shield-alert':z.type==='CONSTRUCTION'?'cone':z.type==='ATTENDANCE'?'user-check':'shield-check'}" size="18"></i>`;
+  document.getElementById('pop-av').style.cssText = `width:42px;height:42px;border-radius:50%;background:${m.bg};color:${m.col};border:2px solid ${z.color}55;display:flex;align-items:center;justify-content:center;flex-shrink:0`;
+
+  document.getElementById('pop-name').textContent = z.label;
+  document.getElementById('pop-sub').textContent  = `${m.label}구역 · 좌표 ${(z.plainPath||z.path||[]).length}개`;
+
+  // 공사구역이면 상세정보 표시
+  let bodyHtml = `
+    <div class="pop-row"><span class="pop-key">유형</span><span class="pop-val" style="color:${m.col}">${m.label}</span></div>
+    <div class="pop-row"><span class="pop-key">진입 횟수</span><span class="pop-val">${z.entries||0}회</span></div>
+  `;
+
+  if (z.type === 'CONSTRUCTION') {
+    if (z.details) {
+      const d = z.details;
+      const period = (d.start_date || d.end_date)
+        ? `${d.start_date || '미정'} ~ ${d.end_date || '미정'}`
+        : '<span style="color:var(--muted)">기간 미설정</span>';
+      bodyHtml += `
+        <div class="pop-row"><span class="pop-key">기준 고도</span><span class="pop-val">${d.base_altitude != null ? d.base_altitude + ' m' : '-'}</span></div>
+        <div class="pop-row"><span class="pop-key">층간 높이</span><span class="pop-val">${d.floor_height != null ? d.floor_height + ' m' : '<span style="color:var(--muted)">미지정</span>'}</span></div>
+        <div class="pop-row"><span class="pop-key">공사 기간</span><span class="pop-val" style="font-size:11px">${period}</span></div>
+      `;
+    } else {
+      bodyHtml += `<div class="pop-row" style="color:var(--warning2);font-size:11px">⚠ 상세정보가 아직 설정되지 않았습니다.</div>`;
+    }
+  }
+
+  document.getElementById('pop-body').innerHTML = bodyHtml;
+
+  // 푸터: 공사구역이면 "상세 수정" 버튼, 공통 "삭제"
+  let footerHtml = '';
+  if (z.type === 'CONSTRUCTION' && SERVER_ADMIN) {
+    footerHtml += `<button class="pop-btn" onclick="closePopup(); openConstructionDetails(zones.find(x=>x.id===${z.id}), true)"><i data-lucide="edit-3" size="12"></i> 상세 수정</button>`;
+  }
+  footerHtml += `<button class="pop-btn p" onclick="closePopup()">닫기</button>`;
+  document.getElementById('pop-footer').innerHTML = footerHtml;
+
+  document.getElementById('popup-overlay').classList.add('show');
+  renderIcons();
+}
+
+// ══════════════════════════════════════════════
+// 🏢 GPS 고도 → 층수 예측
+//   floor = ((alt - base) / floor_h) + 1
+//   alt < base → 지하층 (B1, B2, ...)
+// ══════════════════════════════════════════════
+function predictFloor(alt, baseAlt, floorH) {
+  if (alt == null || baseAlt == null || !floorH || floorH <= 0) return null;
+  const delta = alt - baseAlt;
+  const idx = Math.floor(delta / floorH);   // 0 → 1층, 1 → 2층 ...
+  if (idx >= 0) {
+    return { label: `${idx + 1}층`, raw: idx + 1, delta };
+  } else {
+    return { label: `B${Math.abs(idx)}층`, raw: idx + 1, delta };
+  }
+}
+
+function findContainingConstructionZone(lat, lng) {
+  return zones.find(z => z.type === 'CONSTRUCTION' && pipFlat(lat, lng, getFlatPath(z)));
+}
+
+// ══════════════════════════════════════════════
+// 서버 연동 저장/불러오기 (철통 방어 해제: 원본 좌표 그대로 사용)
+// ══════════════════════════════════════════════
+function extractCoord(p) {
+  if (!p) return null;
+  if (typeof p.getLat === 'function' && typeof p.getLng === 'function') {
+    return { lat: p.getLat(), lng: p.getLng() };
+  }
+  if (typeof p.lat === 'number' && typeof p.lng === 'number') return { lat: p.lat, lng: p.lng };
+  if (typeof p.y === 'number' && typeof p.x === 'number') return { lat: p.y, lng: p.x };
+  const vals = Object.entries(p).filter(([k,v]) => typeof v === 'number' && v !== 0);
+  const latVal = vals.find(([k,v]) => v > 33 && v < 39);
+  const lngVal = vals.find(([k,v]) => v > 124 && v < 132);
+  if (latVal && lngVal) return { lat: latVal[1], lng: lngVal[1] };
+  return null;
+}
+
+function getAllPolygonPaths() {
+  try {
+    const data = manager.getData();
+    const polys = data[kakao.maps.drawing.OverlayType.POLYGON] || [];
+    return polys.map(poly => {
+      if (!poly.points || poly.points.length === 0) return [];
+      const ring = Array.isArray(poly.points[0]) ? poly.points[0] : poly.points;
+      return ring.map(p => ({ lat: p.y || p.lat, lng: p.x || p.lng }))
+                 .filter(c => c.lat && c.lng);
+    });
+  } catch(e) {
+    console.error('getAllPolygonPaths 실패:', e);
+    return [];
+  }
+}
+
+async function saveZones() {
+  if (zones.length === 0) {
+    if(!confirm('저장할 구역이 없습니다. 모든 구역 설정을 지우시겠습니까?')) return;
+  }
+
+  const dmPaths = getAllPolygonPaths();
+  console.log('[saveZones] DrawingManager 폴리곤:', dmPaths.length + '개', dmPaths);
+
+  const payload = [];
+  let dmIdx = 0; 
+
+  for (let i = 0; i < zones.length; i++) {
+    let z = zones[i];
+    let coords = [];
+
+    if (z.plainPath && z.plainPath.length >= 3) {
+      coords = z.plainPath;
+      console.log(`[저장] #${i} ${z.label}: plainPath 사용 (${coords.length}개)`);
+    }
+    else if (z.target && typeof z.target.getPath === 'function') {
+      try {
+        let rawPath = z.target.getPath();
+        if (rawPath.length > 0 && Array.isArray(rawPath[0])) rawPath = rawPath[0];
+        for (const p of rawPath) {
+          const c = extractCoord(p);
+          if (c) coords.push(c);
+        }
+        console.log(`[저장] #${i} ${z.label}: getPath 사용 (${coords.length}개)`);
+      } catch(e) { console.warn('getPath 실패:', e); }
+    }
+    
+    if (coords.length < 3 && dmIdx < dmPaths.length) {
+      coords = dmPaths[dmIdx];
+      console.log(`[저장] #${i} ${z.label}: getData 매칭 (dmIdx=${dmIdx}, ${coords.length}개)`);
+      dmIdx++;
+    } else if (coords.length >= 3 && z.plainPath) {
+      dmIdx++;
+    }
+
+    console.log(`[저장] 최종 #${i} ${z.label}:`, coords.length + '개', coords.slice(0,2));
+
+    if (coords.length < 3) {
+      console.warn(`⚠ 구역 #${i} (${z.label}): 좌표 ${coords.length}개 — 건너뜀`);
+      addLog(`⚠ ${z.label} 좌표 부족으로 건너뜀`, 'w');
+      continue;
+    }
+
+    payload.push({
+      index: i,
+      type: z.type || 'SAFE',
+      label: z.label || '구역',
+      color: z.color || '#10b981',
+      path: coords
+    });
+  }
+
+  if (payload.length === 0 && zones.length > 0) {
+    alert('❌ 좌표 추출에 실패했습니다.\n\nF12 콘솔을 확인해 주세요.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/zones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ zones: payload })
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      alert(`✅ 구역 설정 저장 완료! (${result.count}개)`);
+      toast('저장 완료', 'DB에 저장되었습니다.', 's');
+      addLog(`구역 저장 완료 (${result.count}개)`, 's');
+    } else {
+      alert(`❌ 저장 실패: ${result.error || '알 수 없는 오류'}`);
+    }
+  } catch (e) {
+    alert(`❌ 서버 통신 오류: ${e.message}`);
+    addLog(`저장 오류: ${e.message}`, 'd');
+  }
+}
+
+async function loadZones() {
+  try {
+    const r = await fetch('/api/zones?t=' + Date.now()); 
+    if (!r.ok) {
+      addLog(`구역 불러오기 실패: HTTP ${r.status}`, 'd');
+      return;
+    }
+    
+    const d = await r.json(); 
+    console.log('[loadZones] 서버 응답:', JSON.stringify(d).substring(0, 500));
+    
+    if (!d.zones || !Array.isArray(d.zones) || d.zones.length === 0) {
+      addLog('저장된 구역 없음', 'i');
+      return;
+    }
+
+    let loadedCount = 0;
+    
+    d.zones.forEach((z, idx) => {
+      if (!z.path || !Array.isArray(z.path) || z.path.length < 3) {
+        console.warn(`[loadZones] 구역 #${idx} (${z.label}): path 부족 (${z.path ? z.path.length : 0}개)`);
+        return;
+      }
+      
+      const validPath = [];
+      z.path.forEach(p => {
+        let lat = parseFloat(p.lat);
+        let lng = parseFloat(p.lng);
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+          validPath.push(new kakao.maps.LatLng(lat, lng));
+        }
+      });
+
+      console.log(`[loadZones] 구역 #${idx} (${z.label}): ${validPath.length}/${z.path.length}개 좌표 유효`);
+
+      if (validPath.length >= 3) {
+        const pg = new kakao.maps.Polygon({ 
+          path: validPath, 
+          strokeWeight: 2.5, 
+          strokeColor: z.color || '#10b981', 
+          strokeOpacity: 0.9, 
+          fillColor: z.color || '#10b981', 
+          fillOpacity: 0.28 
+        });
+        pg.setMap(map);
+        
+        const plainCoords = z.path.map(p => ({lat: parseFloat(p.lat), lng: parseFloat(p.lng)}));
+        
+        zones.push({ 
+          id: Date.now() + Math.random(), 
+          type: z.type || 'SAFE', 
+          label: z.label || '구역', 
+          color: z.color || '#10b981', 
+          target: pg, 
+          path: validPath, 
+          plainPath: plainCoords,
+          _static: true,   // ✅ 좌표 고정 → flat 경로 영구 캐싱 허용
+          entries: 0,
+          details: (z.type === 'CONSTRUCTION' ? (z.details || null) : null)  // ✅ 공사구역 상세 복원
+        });
+        loadedCount++;
+      }
+    });
+    
+    if (loadedCount > 0) {
+      addLog(`DB에서 구역 ${loadedCount}개 복원 완료`, 's');
+    } else {
+      addLog(`⚠ DB에 ${d.zones.length}개 구역이 있으나 복원 실패 (좌표 확인 필요)`, 'w');
+    }
+    
+    renderZones(); updateStats();
+    
+  } catch(e) { 
+    addLog(`구역 불러오기 오류: ${e.message}`, 'd'); 
+    console.error("loadZones 오류:", e); 
+  }
+}
+
+function delZone(id){
+  const i = zones.findIndex(z=>z.id===id); 
+  if(i<0) return;
+
+  const deletedLabel = zones[i].label || '구역';
+
+  if (zones[i].target) {
+    try {
+      if (typeof zones[i].target.setMap === 'function') zones[i].target.setMap(null);
+    } catch(e) { console.warn('setMap(null) 실패:', e); }
+    try {
+      if (manager) manager.remove(zones[i].target);
+    } catch(e) { console.warn('manager.remove 실패:', e); }
+  }
+  
+  zones.splice(i,1);
+  
+  // 🛠️ [수정] 대기하지 않고 즉시 saveZones()를 호출하여 서버 DB에서 삭제
+  saveZones(); 
+  
+  toast('구역 삭제됨', `${deletedLabel} — 서버에 즉시 반영되었습니다.`, 'i');
+  renderZones(); 
+  updateStats();
+}
+
+function clearAll(){
+  if(!confirm('모든 구역을 화면에서 지우시겠습니까?\n(삭제 후 좌측 하단의 [저장] 버튼을 한 번 더 눌러야 DB까지 완전히 비워집니다)')) return;
+  
+  zones.forEach(z => {
+    if (z.target && typeof z.target.setMap === 'function') z.target.setMap(null);
+  });
+  manager.clear(); 
+  zones=[];
+  Object.keys(alertCooldowns).forEach(k=>delete alertCooldowns[k]);
+  addLog('전체 구역 초기화','w'); 
+  renderZones(); 
+  updateStats();
+}
+
+function downloadTxt(){
+  const d=manager.getData();
+  if(!(d[kakao.maps.drawing.OverlayType.POLYGON]||[]).length){ toast('데이터 없음','','w'); return; }
+  dl('safety_zones_config.txt', JSON.stringify(d,null,4), 'text/plain');
+}
+
+function downloadViolationsCsv() {
+  window.location.href = '/api/download_violations';
+  toast('다운로드 시작', '전체 누적 위반 기록을 다운로드합니다.', 's');
+}
+
+function dl(name,text,mime){ const b=new Blob([text],{type:mime}),u=URL.createObjectURL(b),a=Object.assign(document.createElement('a'),{href:u,download:name});document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u); }
+
+// ══════════════════════════════════════════════
+// 실시간 폴링 및 위치 추적 (✅ 수정됨: 서버에서 이름 받아오기 매핑)
+// ══════════════════════════════════════════════
+async function poll(){
+  try{
+    const r = await fetch('/api/get_recent_logs');
+    const d = await r.json();
+    const now = Date.now(); 
+    const latest = {};
+
+    (d.logs || []).forEach(l => {
+      if(!l.lat || !l.lon) return;
+      const t = l.reg_date ? new Date(l.reg_date).getTime() : 0;
+      if(now - t > WORKER_TTL) return; // 5분 제한
+      
+      const uid = l.user_id;
+      if(!latest[uid] || new Date(l.reg_date) > new Date(latest[uid].reg_date)) latest[uid] = l;
+    });
+
+    Object.keys(workers).forEach(uid => { if(!latest[uid]){ removeMarker(uid); delete workers[uid]; } });
+    
+    Object.values(latest).forEach(l => {
+      // ✅ 서버에서 받아온 name 할당
+      const uid = l.user_id, lat = parseFloat(l.lat), lng = parseFloat(l.lon), name = l.name;
+      const alt = (l.alt != null && l.alt !== '') ? parseFloat(l.alt) : null;
+      // ✅ DB의 실제 개인정보 (팝업에서 사용)
+      const phone = l.phone || '';
+      const birthdate = l.birthdate || '';
+      const gender = l.gender || '';
+      
+      updateMarker(uid, lat, lng, name);
+      checkZones(uid, lat, lng);
+      
+      if(!workers[uid]) workers[uid] = { status:'safe', inZones:new Set(), lastSeen:l.reg_date, lat, lng, alt, name: name, phone, birthdate, gender };
+      else Object.assign(workers[uid], { lat, lng, alt, lastSeen:l.reg_date, name: name, phone, birthdate, gender });
+      
+      if(trailOn) addTrail(uid, lat, lng);
+    });
+    
+    renderWorkers(); conn(true); updateStats();
+    // 긴급 이벤트 체크
+    pollEmergency();
+  } catch(e) { conn(false); }
+}
+
+let _lastEmergencyHash = '';
+async function pollEmergency() {
+  try {
+    const r = await fetch('/api/emergency_events');
+    const d = await r.json();
+    if (!d.events || d.events.length === 0) return;
+    const hash = d.events[0].detected_at + d.events[0].name;
+    if (hash === _lastEmergencyHash) return;
+    _lastEmergencyHash = hash;
+    const ev = d.events[0];
+    const isImpact = ev.violation_type && ev.violation_type.includes('충격');
+    const icon = isImpact ? '💥' : '🆘';
+    toast(`${icon} 긴급: ${ev.name}`, ev.violation_type, 'd');
+    addLog(`${icon} 긴급 수신: ${ev.name} — ${ev.violation_type}`, 'd');
+    pushTicker(`${icon} 긴급: ${ev.name} — ${ev.violation_type}`, 'danger');
+    if (soundOn) beep(440, 1.0, 0.5);
+    flash();
+    // 해당 작업자 상태 업데이트
+    Object.keys(workers).forEach(uid => {
+      if(workers[uid].name === ev.name) {
+        workers[uid].status = 'emergency';
+        const _mk = document.getElementById('mk-'+uid);
+        if(_mk){ _mk.classList.add('mk-emergency-pulse'); _mk.style.background='#ef4444'; }
+      }
+    });
+    renderWorkers();
+  } catch(e){}
+}
+
+function conn(ok){
+  document.getElementById('conn-dot').style.background=ok?'var(--success)':'var(--danger)';
+  document.getElementById('conn-txt').textContent=ok?'실시간 연결됨':'서버 연결 끊김';
+}
+function setPollInterval(v){
+  pollInterval = parseInt(v)*1000;
+  document.getElementById('poll-val').textContent=v+'초';
+  if(pollTimer){ clearInterval(pollTimer); pollTimer=setInterval(poll,pollInterval); }
+}
+
+// ══════════════════════════════════════════════
+// 고급 마커(이름표 포함) 업데이트 로직 (✅ 수정됨: 이름 우선 표시)
+// ══════════════════════════════════════════════
+function updateMarker(uid, lat, lng, name){
+  const pos = new kakao.maps.LatLng(lat, lng);
+  const col = gc(uid);
+  
+  // ✅ 이름이 있으면 이름 표시, 없으면 이메일 앞부분 잘라서 표시
+  const displayName = (name && name !== '미등록 사용자') ? name : uid.split('@')[0];
+
+  if(markers[uid]){
+    markers[uid].ov.setPosition(pos);
+    // 긴급 상태 변화 시 마커 아이콘 갱신 (깜빡임 토글)
+    const _mk = document.getElementById('mk-'+uid);
+    if(_mk){
+      const _emg = workers[uid] && workers[uid].status === 'emergency';
+      _mk.style.background = _emg ? '#ef4444' : col;
+      _mk.style.borderColor = _emg ? '#fff200' : '#fff';
+      if(_emg) _mk.classList.add('mk-emergency-pulse');
+      else _mk.classList.remove('mk-emergency-pulse');
+    }
+    return;
+  }
+  
+  const w = workers[uid];
+  const isEmergency = w && w.status === 'emergency';
+  const markerBg = isEmergency ? '#ef4444' : col;
+  const markerClass = isEmergency ? 'mk-emergency-pulse' : '';
+  const markerLabel = isEmergency ? '🚨 ' + displayName : displayName;
+  const content = `
+    <div style="display:flex; flex-direction:column; align-items:center;">
+      <div style="background:${markerBg}; color:#fff; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:bold; margin-bottom:5px; box-shadow:0 2px 4px rgba(0,0,0,0.2);">${markerLabel}</div>
+      <div id="mk-${uid}" onclick="showWorkerPopup('${uid}')" class="${markerClass}" style="width:24px; height:24px; border-radius:50%; background:${markerBg}; border:2px solid ${isEmergency?'#fff200':'#fff'}; box-shadow:0 2px 8px rgba(0,0,0,0.4); cursor:pointer;"></div>
+    </div>`;
+  
+  const ov = new kakao.maps.CustomOverlay({ map, position: pos, content, yAnchor: 1, zIndex: 10 });
+  markers[uid] = { ov };
+}
+
+function removeMarker(uid){
+  if(markers[uid]){ markers[uid].ov.setMap(null); delete markers[uid]; }
+  if(trailLines[uid]){ trailLines[uid].setMap(null); delete trailLines[uid]; delete trails[uid]; }
+}
+
+function addTrail(uid,lat,lng){
+  if(!trails[uid]) trails[uid]=[];
+  trails[uid].push(new kakao.maps.LatLng(lat,lng));
+  if(trails[uid].length>50) trails[uid].shift();
+  if(trailLines[uid]) trailLines[uid].setMap(null);
+  trailLines[uid]=new kakao.maps.Polyline({
+    map, path:trails[uid], strokeWeight:2, strokeColor:gc(uid),
+    strokeOpacity:.5, strokeStyle:'shortdot'
+  });
+}
+function clearTrails(){
+  Object.keys(trailLines).forEach(uid=>{ trailLines[uid].setMap(null); delete trailLines[uid]; delete trails[uid]; });
+}
+
+// (✅ 수정됨: 목록 및 검색에서도 이름 우선 표시)
+let _workerListSig = '';   // 직전에 렌더한 목록의 상태 지문 (불필요한 재렌더 방지)
+function renderWorkers(){
+  const el=document.getElementById('workerList');
+  let uids=Object.keys(workers);
+  if(workerFilter==='danger')    uids=uids.filter(u=>workers[u].status==='danger');
+  if(workerFilter==='emergency') uids=uids.filter(u=>workers[u].status==='emergency');
+  if(workerFilter==='safe')      uids=uids.filter(u=>workers[u].status!=='danger'&&workers[u].status!=='emergency');
+  
+  if(workerSearch) uids=uids.filter(u=>{
+    const w = workers[u];
+    const n = w.name ? w.name.toLowerCase() : '';
+    const m = u.toLowerCase();
+    const q = workerSearch.toLowerCase();
+    return m.includes(q) || n.includes(q);
+  });
+  
+  document.getElementById('wc').textContent=uids.length+'명';
+  if(!uids.length){
+    if(_workerListSig!=='__empty__'){
+      el.innerHTML=`<div class="empty"><div class="empty-icon"><i data-lucide="user-x" size="28"></i></div>해당 인원 없음</div>`;
+      renderIcons();
+      _workerListSig='__empty__';
+    }
+    return;
+  }
+  
+  // ✅ 표시에 영향을 주는 값만 모아 지문 생성. 바뀐 게 없으면 DOM을 건드리지 않는다.
+  let sig='';
+  for(const uid of uids){
+    const w=workers[uid];
+    sig += uid+'|'+(w.name||'')+'|'+w.status+'|'+(w.currentZone||'')+'|'+(w.lastSeen||'')+';';
+  }
+  if(sig===_workerListSig) return;   // 변화 없음 → 재렌더 생략
+  _workerListSig=sig;
+  
+  el.innerHTML=uids.map(uid=>{
+    const w = workers[uid];
+    const col = gc(uid);
+    // ✅ 이름 우선 적용
+    const displayName = (w.name && w.name !== '미등록 사용자') ? w.name : uid.split('@')[0];
+    const init = displayName.slice(0,2).toUpperCase();
+    const t = w.lastSeen ? new Date(w.lastSeen).toLocaleTimeString('ko-KR',{hour12:false,hour:'2-digit',minute:'2-digit'}) : '--:--';
+    const sc = w.status==='emergency'?'ws-danger':w.status==='danger'?'ws-danger':w.status==='checked'?'ws-safe':'ws-idle';
+    const st = w.currentZone || (w.status==='emergency'?'🚨 긴급':w.status==='danger'?'위험구역':w.status==='checked'?'정상':'추적 중');
+    
+    return `<div class="wi" onclick="showWorkerPopup('${uid}')">
+      <div class="av" style="background:${col}22;color:${col};border:2px solid ${col}44">${init}</div>
+      <div style="flex:1;min-width:0"><div class="wn">${displayName}</div><div class="wt">${t} 업데이트</div></div>
+      <span class="ws ${sc}">${st}</span>
+    </div>`;
+  }).join('');
+  // ✅ 작업자 행에는 lucide 아이콘이 없으므로 문서 전체 아이콘 스캔(renderIcons) 호출 제거 → 매 poll 비용 절감
+}
+
+// =============================================
+// 구역 감지 (진입 및 퇴장 처리 추가)
+// =============================================
+function checkZones(uid,lat,lng){
+  const prev=workers[uid]?.inZones??new Set();
+  const now=new Set();
+  let dangerFlag=false;
+  let bestZone=null; 
+  
+  zones.forEach(z=>{
+    if(pipFlat(lat, lng, getFlatPath(z))){
+      now.add(z.id);
+      if(!prev.has(z.id)) onEnter(uid,z);
+      if(z.type==='DANGER') dangerFlag=true;
+      
+      if(!bestZone) bestZone=z;
+      else if(z.type==='DANGER') bestZone=z;
+      else if(z.type==='CONSTRUCTION' && bestZone.type!=='DANGER') bestZone=z;
+      else if(z.type==='ATTENDANCE' && bestZone.type==='SAFE') bestZone=z;
+    }
+  });
+
+  // ★ 기존 구역(prev)에는 있었지만 현재(now)는 없는 경우 -> '퇴장' 감지 로직
+  prev.forEach(zid => {
+    if(!now.has(zid)) {
+      const z = zones.find(x => x.id === zid);
+      if(z) onExit(uid, z);
+    }
+  });
+
+  if(workers[uid]){
+    workers[uid].inZones=now;
+    workers[uid].status=dangerFlag?'danger':(now.size?'checked':'safe');
+    
+    if(bestZone){
+      workers[uid].currentZone=bestZone.label;
+      workers[uid].currentZoneType=bestZone.type;
+      reportWorkerZone(uid, bestZone.label, bestZone.type);
+    } else {
+      workers[uid].currentZone='현장 근무';
+      workers[uid].currentZoneType='ONSITE';
+      reportWorkerZone(uid, '현장 근무', 'ONSITE');
+    }
+  }
+}
+
+// 진입 감지 처리
+function onEnter(uid,zone){
+  const key=`${uid}_${zone.id}`, now=Date.now();
+  if(alertCooldowns[key]&&now-alertCooldowns[key]<cooldownMs) return;
+  alertCooldowns[key]=now;
+  zone.entries=(zone.entries||0)+1;
+  if(!zoneEntryCounts[zone.id]) zoneEntryCounts[zone.id]={label:zone.label,type:zone.type,count:0};
+  zoneEntryCounts[zone.id].count++;
+  
+  if(zone.type==='DANGER') handleDanger(uid,zone);
+  else if(zone.type==='CONSTRUCTION') addLog(`${uid} 공사구역 진입`,'w');
+  else if(zone.type==='ATTENDANCE') handleAttendance(uid);
+  else addLog(`${uid} 안전구역 진입`,'s');
+  renderZones();
+}
+
+// 퇴장 감지 처리 로직 추가
+async function onExit(uid, zone){
+  if(zone.type === 'DANGER') {
+    addLog(`🟢 위험 경보 해제: ${uid} — ${zone.label} 퇴장`,'s');
+    toast('위험구역 퇴장',`${uid}님이 ${zone.label}에서 안전구역으로 이동했습니다.`,'s');
+    pushTicker(uid+' 위험구역 퇴장','success');
+    updateStats();
+    
+    // 위험구역 퇴장 로그를 서버로 전송 (charts.html 필터링에 활용됨)
+    try { 
+      await fetch('/api/violation', {
+        method:'POST', 
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+            name: uid, 
+            type: `위험구역 퇴장 (${zone.label})`, 
+            image_url: 'map_detect'
+        })
+      }); 
+    } catch(e) { console.error('퇴장 로그 전송 실패:', e); }
+    
+  } else if (zone.type === 'CONSTRUCTION') {
+    addLog(`${uid} 공사구역 퇴장`,'i');
+  } else if (zone.type === 'ATTENDANCE') {
+    addLog(`${uid} 근무지 퇴장`,'i');
+  } else {
+    addLog(`${uid} 안전구역 퇴장`,'i');
+  }
+}
+
+async function handleDanger(uid,zone){
+  alertCnt++; violTotalCnt++;
+  flash(); if(soundOn) beep(880,0.5,0.3);
+  addLog(`🔴 위험 경보: ${uid} — ${zone.label} 진입`,'d');
+  toast('위험 경보',`${uid}님이 ${zone.label}에 진입했습니다!`,'d');
+  pushTicker(uid+' 위험구역 진입','danger');
+  if(autoCenterOn&&workers[uid]) map.setCenter(new kakao.maps.LatLng(workers[uid].lat,workers[uid].lng));
+  updateStats();
+  
+  // 위험구역 진입 로그를 서버로 전송
+  try{ 
+      await fetch('/api/violation',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+              name:uid,
+              type:`위험구역 진입 (${zone.label})`,
+              image_url:'map_detect'
+          })
+      }); 
+  } catch(e){}
+  
+  if(rightOpen){ await fetchViolations(); document.getElementById('r24h').textContent=alertCnt; }
+}
+
+async function handleAttendance(uid){
+  checkedCnt++;
+  // ✅ 사용자 요청: 위험구역 외 다른 구역에서는 알림/진동 없음 → 토스트/티커 제거, 로그만 남김
+  addLog(`출근 확인: ${uid}`,'w');
+  updateStats();
+  try{ await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:uid,is_checkin:true})}); }
+  catch(e){}
+}
+
+/* ✅ 구역 폴리곤을 한 번만 평탄(flat) 숫자 배열 [lat,lng,lat,lng,...] 로 변환해 캐싱.
+   매 poll 마다 좌표를 다시 풀어내거나 getLat()/getLng() 메서드를 호출하지 않게 한다. */
+function getFlatPath(z){
+  // 정적(서버에서 불러온) 구역만 영구 캐싱 — 좌표가 바뀌지 않으므로 안전하고 가장 빠르다.
+  if(z._static && z._flat) return z._flat;
+
+  // 좌표 원본 선택: 편집 가능한 그린 구역은 live 경로를 우선해 편집 결과를 반영.
+  let src = null;
+  if(!z._static && z.target && typeof z.target.getPath === 'function'){
+    try { src = z.target.getPath(); } catch(e) { src = null; }
+  }
+  if(!src) src = z.plainPath || z.path || [];
+  if(src.length > 0 && Array.isArray(src[0])) src = src[0];
+
+  const flat = new Float64Array(src.length * 2);
+  for(let i=0;i<src.length;i++){
+    const p = src[i];
+    flat[i*2]   = (typeof p.getLat === 'function') ? p.getLat() : p.lat;
+    flat[i*2+1] = (typeof p.getLng === 'function') ? p.getLng() : p.lng;
+  }
+  if(z._static) z._flat = flat;   // 정적 구역만 결과 보관
+  return flat;
+}
+
+/* 평탄 배열 기반 point-in-polygon. 객체 생성/메서드 호출 없이 숫자만 다룬다. */
+function pipFlat(lat, lng, flat){
+  const n = flat.length / 2;
+  if(n < 3) return false;
+  let c = false;
+  for(let i=0, j=n-1; i<n; j=i++){
+    const iLat=flat[i*2], iLng=flat[i*2+1];
+    const jLat=flat[j*2], jLng=flat[j*2+1];
+    if(((iLng<=lng && lng<jLng)||(jLng<=lng && lng<iLng)) &&
+       (lat < (jLat-iLat)*(lng-iLng)/(jLng-iLng)+iLat)) c=!c;
+  }
+  return c;
+}
+
+/* 기존 호출부 호환용 래퍼 (pt 객체를 받던 코드도 그대로 동작) */
+function pip(pt, path){
+  const lat = (typeof pt.getLat === 'function') ? pt.getLat() : pt.lat;
+  const lng = (typeof pt.getLng === 'function') ? pt.getLng() : pt.lng;
+  let src = path;
+  if(src && src.length > 0 && Array.isArray(src[0])) src = src[0];
+  if(!src || src.length < 3) return false;
+  const flat = new Float64Array(src.length * 2);
+  for(let i=0;i<src.length;i++){
+    const p=src[i];
+    flat[i*2]   = (typeof p.getLat === 'function') ? p.getLat() : p.lat;
+    flat[i*2+1] = (typeof p.getLng === 'function') ? p.getLng() : p.lng;
+  }
+  return pipFlat(lat, lng, flat);
+}
+
+// [위반 피드 조회] GET /api/get_violations → 우측 패널 위반 목록 + 하단 티커 갱신
+async function fetchViolations(){
+  try{
+    const r=await fetch('/api/get_violations'), d=await r.json();
+    violations=d.violations||[];
+    violTotalCnt=violations.length;
+    const el=document.getElementById('vFeed');
+    if(!violations.length){ el.innerHTML=`<div class="empty"><div class="empty-icon"><i data-lucide="check-circle" size="28"></i></div>위반 기록 없음</div>`; renderIcons(); return; }
+    el.innerHTML=violations.slice(0,40).map(v=>{
+      const isMap=v.image_url==='map_detect';
+      return `<div class="vitem ${isMap?'safe':''}">
+        <div class="vi-name">${v.name||'미식별자'}</div>
+        <div class="vi-type ${isMap?'safe':''}">${v.violation_type||'알 수 없음'}</div>
+        <div class="vi-time">${v.detected_at||'--'}</div>
+        ${v.image_url&&!isMap?`<img src="${v.image_url}" style="width:100%;border-radius:6px;margin-top:6px;object-fit:cover;max-height:80px" onerror="this.style.display='none'">`:'' }
+      </div>`;
+    }).join('');
+    updateStats();
+  }catch(e){}
+}
+
+// [구역 통계 렌더] 각 구역별 현재 진입 작업자 수 계산 후 우측 패널에 표시
+function renderZoneStats(){
+  const el=document.getElementById('zone-stats');
+  const entries=Object.values(zoneEntryCounts);
+  if(!entries.length){ el.innerHTML=`<div style="font-size:11px;color:var(--muted)">아직 진입 기록 없음</div>`; return; }
+  const max=Math.max(...entries.map(e=>e.count),1);
+  el.innerHTML=entries.map(e=>{
+    const m=TYPE_META[e.type] || TYPE_META['SAFE']; 
+    const w=Math.round(e.count/max*100);
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+        <span style="font-weight:700">${e.label}</span>
+        <span style="color:var(--muted2)">${e.count}회</span>
+      </div>
+      <div style="height:6px;background:var(--s3);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${w}%;background:${m.col};border-radius:3px;transition:.4s"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// (✅ 수정됨: 팝업에도 이름 우선 표시 + 공사구역 내일 때 층수 예측)
+function showWorkerPopup(uid){
+  const w = workers[uid]; if(!w) return;
+  const col = gc(uid);
+  
+  const displayName = (w.name && w.name !== '미등록 사용자') ? w.name : uid.split('@')[0];
+  const init = displayName.slice(0,2).toUpperCase();
+  const t = w.lastSeen ? new Date(w.lastSeen).toLocaleTimeString('ko-KR',{hour12:false}) : '--:--';
+  const st = w.status === 'danger' ? '⚠ 위험' : (w.status === 'checked' ? '✓ 정상' : '◯ 추적 중');
+  
+  // ✅ DB에서 받아온 실제 개인정보 사용 (하드코딩 제거)
+  // 나이: birthdate 앞 4자리(연도)로 한국 나이 계산 (2026 - 출생연도 + 1) — tables.html 과 동일 로직
+  let age = "미등록";
+  if (w.birthdate && w.birthdate.length >= 4) {
+    const y = parseInt(w.birthdate.substring(0,4));
+    if (!isNaN(y) && y > 1900 && y < 2100) {
+      age = (new Date().getFullYear() - y + 1) + "세";
+    }
+  }
+  const gender = w.gender || "미등록";
+  const phone  = w.phone  || "미등록";
+  
+  // ✅ 층 예측: 작업자가 공사구역 안에 있고, 그 공사구역에 기준고도(1F 바닥)와 층간높이가 등록되어 있을 때만 표시
+  let floorRowHtml = '';
+  const cz = findContainingConstructionZone(w.lat, w.lng);
+  if (cz && cz.details && cz.details.base_altitude != null && cz.details.floor_height) {
+    const zoneRow = `<div class="pop-row"><span class="pop-key">공사구역</span><span class="pop-val" style="color:#60a5fa">${cz.label}</span></div>`;
+    
+    if (w.alt != null) {
+      // 작업자 고도 있음 → 정확한 층 계산
+      const f = predictFloor(w.alt, cz.details.base_altitude, cz.details.floor_height);
+      const dH = (w.alt - cz.details.base_altitude).toFixed(1);
+      floorRowHtml = zoneRow + `
+        <div class="pop-row"><span class="pop-key">현재 고도</span><span class="pop-val">${w.alt.toFixed(1)} m <span style="color:var(--muted);font-size:10px">(기준+${dH}m)</span></span></div>
+        <div class="pop-row" style="background:rgba(59,130,246,.08);padding:6px 8px;border-radius:6px;margin:2px -4px"><span class="pop-key" style="font-weight:800;color:#60a5fa">📐 예상 층수</span><span class="pop-val" style="font-size:14px;color:#60a5fa;font-weight:800">${f.label}</span></div>
+      `;
+    } else {
+      // 작업자 고도 없음 → 기준고도(1F)로 가정하여 "1층" 표시
+      floorRowHtml = zoneRow + `
+        <div class="pop-row" style="background:rgba(59,130,246,.08);padding:6px 8px;border-radius:6px;margin:2px -4px"><span class="pop-key" style="font-weight:800;color:#60a5fa">📐 예상 층수</span><span class="pop-val" style="font-size:14px;color:#60a5fa;font-weight:800">1층</span></div>
+      `;
+    }
+  }
+  
+  document.getElementById('pop-av').innerHTML = `<span style="font-size:14px;font-weight:800">${init}</span>`;
+  document.getElementById('pop-av').style.cssText = `width:42px;height:42px;border-radius:50%;background:${col}33;color:${col};border:2px solid ${col}66;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0`;
+  
+  document.getElementById('pop-name').textContent = displayName + " 작업자";
+  document.getElementById('pop-sub').textContent = st;
+  
+  document.getElementById('pop-body').innerHTML = `
+    <div class="pop-row"><span class="pop-key">나이</span><span class="pop-val">${age}</span></div>
+    <div class="pop-row"><span class="pop-key">성별</span><span class="pop-val">${gender}</span></div>
+    <div class="pop-row"><span class="pop-key">연락처</span><span class="pop-val">${phone}</span></div>
+    <div class="pop-row"><span class="pop-key">현재 위치</span><span class="pop-val">${w.lat.toFixed(5)}, ${w.lng.toFixed(5)}</span></div>
+    <div class="pop-row"><span class="pop-key">진입 구역</span><span class="pop-val">${w.inZones.size}개</span></div>
+    <div class="pop-row"><span class="pop-key">업데이트</span><span class="pop-val">${t}</span></div>
+    ${floorRowHtml}
+  `;
+  
+  document.getElementById('pop-footer').innerHTML = `
+    <button class="pop-btn" onclick="map.setCenter(new kakao.maps.LatLng(${w.lat},${w.lng}));closePopup()"><i data-lucide="locate" size="12"></i> 위치 보기</button>
+    <button class="pop-btn p" onclick="closePopup()">닫기</button>
+  `;
+  
+  document.getElementById('popup-overlay').classList.add('show');
+  renderIcons();
+}
+function closePopup(){ 
+  document.getElementById('popup-overlay').classList.remove('show'); 
+}
+
+/* ══════════════════════════════════════════════
+   ★ [수정된 함수] triggerSOS
+   image_url을 'map_detect'로 변경하여 이미지 엑스박스를 완벽히 제거
+   ══════════════════════════════════════════════ */
+async function triggerSOS(){
+  if(!confirm('⚠ 비상 방송을 송출하시겠습니까?\n모든 직원에게 즉시 경보가 발송됩니다.')) return;
+  const btn=document.getElementById('sos-btn');
+  btn.classList.add('sos-active');
+  flash(); if(soundOn) beep(220,1.0,1.5);
+  toast('비상 방송 송출','모든 직원에게 경보가 발송되었습니다.','d');
+  addLog('🚨 비상 방송 송출 : 안전 구역으로 대피해주십시오','d');
+  pushTicker('비상 방송 송출 — 안전 구역으로 대피해주십시오','danger');
+  try{
+    await fetch('/api/violation',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+            name:'관제센터',
+            type:'비상 방송 송출',
+            image_url:'map_detect' // <--- 'sos'에서 'map_detect'로 안전하게 변경 완료!
+        })
+    });
+  }catch(e){}
+  setTimeout(()=>btn.classList.remove('sos-active'),2500);
+}
+
+function toggleSound(){ soundOn=!soundOn; document.getElementById('sound-track').classList.toggle('on',soundOn); }
+function toggleTrail(){ trailOn=!trailOn; document.getElementById('trail-track').classList.toggle('on',trailOn); if(!trailOn) clearTrails(); }
+function toggleAutoCenter(){ autoCenterOn=!autoCenterOn; document.getElementById('ac-track').classList.toggle('on',autoCenterOn); }
+function setCooldown(v){ cooldownMs=parseInt(v)*1000; document.getElementById('cd-val').textContent=v+'초'; }
+document.getElementById('sound-track').classList.toggle('on',soundOn);
+document.getElementById('ac-track').classList.toggle('on',autoCenterOn);
+
+function beep(freq,vol,dur){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator(); const gain=ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type='sine'; osc.frequency.value=freq;
+    gain.gain.setValueAtTime(vol,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);
+    osc.start(); osc.stop(ctx.currentTime+dur);
+  }catch(e){}
+}
+
+function flash(){
+  const el=document.getElementById('flash');
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  setTimeout(()=>el.classList.remove('on'),1600);
+}
+
+const TICKER_MAX=20;
+function pushTicker(msg,type='info'){
+  tickerEvents.unshift({msg,type,time:new Date().toLocaleTimeString('ko-KR',{hour12:false,hour:'2-digit',minute:'2-digit'})});
+  if(tickerEvents.length>TICKER_MAX) tickerEvents.pop();
+  renderTicker();
+}
+function renderTicker(){
+  const el=document.getElementById('ticker');
+  if(!tickerEvents.length){ el.innerHTML=`<span class="ticker-event"><span class="ticker-dot" style="background:var(--muted)"></span><span style="color:var(--muted)">이벤트 없음</span></span>`.repeat(5); return; }
+  const items=tickerEvents.map(e=>{
+    const col=e.type==='danger'?'var(--danger)':e.type==='attendance'?'var(--warning)':'var(--success)';
+    return `<span class="ticker-event"><span class="ticker-dot" style="background:${col}"></span><span style="color:${col}">[${e.time}]</span>&nbsp;<span style="color:var(--muted2)">${e.msg}</span></span>`;
+  });
+  el.innerHTML=items.join('')+items.join('');
+}
+
+function toast(title,body,type='s'){
+  const icons={d:'shield-alert',w:'alert-triangle',s:'check-circle'};
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;
+  el.innerHTML=`<div class="ti2"><i data-lucide="${icons[type]}" size="15"></i></div><div><div class="ttitle">${title}</div>${body?`<div class="tbody">${body}</div>`:''}</div>`;
+  document.getElementById('toasts').prepend(el);
+  renderIcons();
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-12px)'; setTimeout(()=>el.remove(),250); },4500);
+}
+
+function addLog(msg,type=''){
+  const box=document.getElementById('log-box');
+  if(!box) return;
+  const t=new Date().toLocaleTimeString('ko-KR',{hour12:false});
+  const el=document.createElement('div'); el.className='le';
+  el.innerHTML=`<span class="lt">${t}</span><span class="lm ${type}">${msg}</span>`;
+  box.insertBefore(el,box.firstChild);
+  while(box.children.length>300) box.removeChild(box.lastChild);
+}
+
+// 초기화
+(async function init(){
+  addLog('시스템 초기화 완료','i');
+  renderTicker();
+  conn(false);
+
+  // ✅ 아이콘(마커) 먼저 표시 — 사용자가 가장 먼저 봐야 하는 것
+  await poll();
+  pollTimer = setInterval(poll, pollInterval);
+
+  // ✅ 구역/위반기록은 백그라운드로 병렬 로드 (아이콘 표시를 막지 않음)
+  loadZones();
+  fetchViolations();
+
+  setInterval(()=>{ if(rightOpen) fetchViolations(); }, 15000);
+})();
+</script>
+</body>
+</html>

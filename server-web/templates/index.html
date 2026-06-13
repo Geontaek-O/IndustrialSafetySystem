@@ -1,0 +1,720 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<style>
+    /* ============================================================
+       REFINED — 대시보드 미니멀 스타일 (위치/구조/로직 변경 없음)
+       ============================================================ */
+    body { background-color: #f6f7f9; }
+
+    /* 카드: 진한 그림자 → 얇은 테두리 + 옅은 그림자 */
+    .premium-card {
+        border: 1px solid #eef1f4;
+        border-radius: 14px;
+        box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 6px 18px rgba(16,24,40,.05);
+        overflow: hidden;
+    }
+    .card-header { background: #fff !important; border: 0 !important; }
+
+    /* 기상 위젯: 파란 글로우 제거, 차분한 잉크색 */
+    .weather-temp {
+        font-size: 4rem;
+        font-weight: 800;
+        letter-spacing: -2px;
+        color: #212a35;
+        text-shadow: none;
+    }
+
+    /* 테이블: 점선 → 얇은 실선 + 행 hover */
+    .table-custom th {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #929ba6;
+        border-top: none;
+        border-bottom: 1px solid #e3e7ec;
+        padding-bottom: 0.85rem;
+    }
+    .table-custom td {
+        vertical-align: middle;
+        border-top: none;
+        border-bottom: 1px solid #eef1f4;
+        padding: 0.85rem 0.75rem;
+    }
+    .table-custom tbody tr:last-child td { border-bottom: 0; }
+    .table-custom tbody tr { transition: background .15s; }
+    .table-custom tbody tr:hover { background: #fafbfc; }
+
+    /* 배지: 꽉 찬 원색 + 그림자 → 연한 파스텔 톤(색 의미 유지) */
+    .badge-pill {
+        border-radius: 50rem;
+        padding: 0.42em 0.85em;
+        font-weight: 600;
+        font-size: 0.76rem;
+        box-shadow: none !important;
+        border: 1px solid transparent;
+    }
+    .badge-soft-success { background:#e9f6ef; color:#0e7a43; border-color:#cdeada; }
+    .badge-soft-info    { background:#eaf0fb; color:#2d54a8; border-color:#d4e0f6; }
+    .badge-soft-warn    { background:#fcf3df; color:#9a6f12; border-color:#f4e4bf; }
+    .badge-soft-danger  { background:#fdeaec; color:#c23241; border-color:#f7d0d4; }
+    .badge-soft-muted   { background:#f1f3f5; color:#6b7682; border-color:#e6e9ec; }
+
+    .progress-sm { height: 0.45rem; border-radius: 50rem; background:#eef1f4; }
+    .progress-bar.bg-primary { background:#15a35a !important; border-radius:50rem; }
+
+    /* 증거 자료 썸네일 */
+    .violation-thumb {
+        width: 50px;
+        height: 35px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid #e3e7ec;
+    }
+
+    /* 보조 UI 색상 정돈 */
+    .btn-ghost {
+        background:#fff; border:1px solid #e3e7ec; color:#15a35a;
+        font-weight:600; box-shadow:none;
+    }
+    .btn-ghost:hover { background:#fafbfc; color:#0e7a43; }
+    .icon-btn-bell {
+        width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center;
+        border-radius:50%; background:#fff7e8; color:#e0a32e; border:1px solid #f3e6c6; box-shadow:none;
+    }
+    .icon-btn-bell:hover { background:#fceecb; }
+    .status-chip {
+        display:inline-flex; align-items:center; gap:.4rem;
+        padding:.45rem 1rem; border-radius:50rem;
+        background:#e9f6ef; border:1px solid #cdeada; color:#0e7a43;
+        font-weight:600; font-size:.82rem;
+    }
+    .text-gray-800, .text-gray-900 { color:#212a35 !important; }
+    .text-primary { color:#3f6fd0 !important; }
+
+    /* 긴급(SOS/충격) 배지 */
+    .badge-soft-emergency {
+        background: #fff0f0;
+        color: #c0392b;
+        border-color: #f5c6cb;
+        animation: sos-pulse .8s infinite;
+    }
+    @keyframes sos-pulse {
+        0%,100%{ box-shadow:0 0 0 0 rgba(192,57,43,.3); }
+        50%{ box-shadow:0 0 0 6px rgba(192,57,43,0); }
+    }
+    /* 긴급 알림 배너 */
+    #sos-alert-bar {
+        display:none;
+        position:fixed;
+        top:0; left:0; right:0;
+        z-index:9999;
+        background: linear-gradient(90deg, #c0392b, #e74c3c);
+        color:#fff;
+        padding:.65rem 1.5rem;
+        font-weight:700;
+        font-size:.9rem;
+        letter-spacing:.3px;
+        box-shadow:0 2px 8px rgba(192,57,43,.4);
+        animation: sos-bar-blink 1s infinite;
+        cursor:pointer;
+    }
+    @keyframes sos-bar-blink {
+        0%,100%{ opacity:1; }
+        50%{ opacity:.85; }
+    }
+    #sos-alert-bar .sos-close {
+        float:right; cursor:pointer; font-size:1.1rem; line-height:1;
+    }
+</style>
+
+<div id="sos-alert-bar" onclick="dismissSosBar()">
+    <i class="fas fa-exclamation-circle mr-2"></i>
+    <span id="sos-alert-text">🚨 긴급 상황 발생!</span>
+    <span class="sos-close" onclick="dismissSosBar()">&times;</span>
+</div>
+<div id="teleport-safety-banner" style="display: none; background: #ffffff; border-left: 4px solid #e0a32e; border-radius: 0.5rem; box-shadow: 0 1px 2px rgba(16,24,40,.05); padding: 0.5rem 1.25rem; width: 950px; max-width: 80vw;">
+    <div class="d-flex flex-column justify-content-center w-100">
+        <div class="text-xs font-weight-bold text-warning text-uppercase" style="letter-spacing: 1px; margin-bottom: 2px;">
+            Today's Safety Guidelines
+        </div>
+        <div class="d-flex align-items-baseline">
+            <h6 class="font-weight-bold text-gray-800 mb-0 mr-2" style="font-size: 0.95rem;">{{ today_law.title }}</h6>
+            <span class="text-gray-600 font-italic" style="font-size: 0.85rem;">"{{ today_law.content }}"</span>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid pb-5 pt-3">
+
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="h3 mb-1 text-gray-800 font-weight-bold">현장 통합 관제</h1>
+            <p class="text-muted small mb-0">안전한 작업 환경을 위한 실시간 모니터링 시스템입니다.</p>
+        </div>
+        <div class="d-none d-sm-flex align-items-center">
+            <a href="/daily_report" class="btn btn-sm btn-ghost rounded-pill px-3 mr-2" style="color: #3f6fd0; border-color: #d4e0f6; background: #eaf0fb;">
+                <i class="fas fa-file-invoice mr-1"></i> 일일 결산
+            </a>
+            <span class="status-chip">
+                <i class="fas fa-check-circle"></i> 시스템 정상 가동중
+            </span>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-4 col-lg-5 mb-4">
+            <div class="card premium-card bg-white h-100">
+                <div class="card-body p-4 d-flex flex-column justify-content-center text-center">
+                    <div class="mb-4">
+                        <h6 class="text-gray-800 font-weight-bold mb-1" id="realtime-clock" style="letter-spacing: 0.5px;"></h6>
+                        <span class="badge badge-pill badge-soft-muted px-3 py-1 mt-2">
+                            <i class="fas fa-map-marker-alt mr-1"></i> Hwaseong-si, Gyeonggi-do
+                        </span>
+                    </div>
+
+                    <div class="my-3">
+                        <i class="fas fa-cloud-sun fa-3x mb-3" style="color:#e0a32e;"></i>
+                        <div class="weather-temp">{{ weather.temp }}<span style="font-size: 1.8rem; vertical-align: top; color: #929ba6;">°C</span></div>
+                        <p class="h5 text-gray-800 mt-1 font-weight-bold">{{ weather.description }}</p>
+                    </div>
+
+                    <div class="mt-auto pt-4">
+                        <span class="status-chip">
+                            <i class="fas fa-check-circle"></i>
+                            <span>야외 작업 환경 양호</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-8 col-lg-7 mb-4">
+            <div class="card premium-card h-100 d-flex flex-column">
+                <div class="card-header bg-white py-4 border-0 d-flex flex-row align-items-center justify-content-between">
+                    <div>
+                        <h6 class="m-0 font-weight-bold text-gray-900"><i class="fas fa-users text-primary mr-2"></i>실시간 출역 및 위치 현황</h6>
+                    </div>
+                    <a href="/tables" class="btn btn-sm btn-ghost rounded-pill px-3">
+                        전체 보기 <i class="fas fa-chevron-right ml-1" style="font-size:0.7rem;"></i>
+                    </a>
+                </div>
+
+                <div class="px-4 pb-3">
+                    <div class="d-flex justify-content-between align-items-end mb-1">
+                        <span class="text-gray-500 small font-weight-bold">금일 현장 출근율</span>
+                        <h5 class="text-gray-800 font-weight-bold mb-0" id="attendance-text">{{ on_duty }}<span class="text-muted small"> / {{ on_duty + off_duty }} 명</span></h5>
+                    </div>
+                    <div class="progress progress-sm mb-2">
+                        <div class="progress-bar bg-primary" role="progressbar" id="attendance-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="card-body px-4 pt-0 pb-4 flex-grow-1">
+                    <div class="table-responsive h-100">
+                        <table class="table table-custom text-center mb-0" id="workerTable">
+                            <thead>
+                                <tr>
+                                    <th width="25%">이름</th>
+                                    <th width="35%">연락처</th>
+                                    <th width="25%">현재 상태</th>
+                                    <th width="15%">이력</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for u in users %}
+                                <tr>
+                                    <td class="font-weight-bold text-gray-800">{{ u.name }}</td>
+                                    <td class="text-muted">{{ u.phone }}</td>
+                                    <td>
+                                        {% if u.status_type == 'danger' %}
+                                            <span class="badge badge-pill badge-soft-danger"><i class="fas fa-exclamation-triangle mr-1"></i>위험구역</span>{% if u.current_zone %} <span class="text-muted small">({{ u.current_zone }})</span>{% endif %}
+                                        {% elif u.status_type == 'construction' %}
+                                            <span class="badge badge-pill badge-soft-info"><i class="fas fa-hard-hat mr-1"></i>공사구역</span>{% if u.current_zone %} <span class="text-muted small">({{ u.current_zone }})</span>{% endif %}
+                                        {% elif u.status_type == 'work_zone' %}
+                                            <span class="badge badge-pill badge-soft-warn"><i class="fas fa-user-check mr-1"></i>근무지</span>{% if u.current_zone %} <span class="text-muted small">({{ u.current_zone }})</span>{% endif %}
+                                        {% elif u.status_type == 'safe' %}
+                                            <span class="badge badge-pill badge-soft-success"><i class="fas fa-shield-alt mr-1"></i>안전구역</span>{% if u.current_zone %} <span class="text-muted small">({{ u.current_zone }})</span>{% endif %}
+                                        {% elif u.status_type == 'emergency' %}
+                                            <span class="badge badge-pill badge-soft-emergency"><i class="fas fa-radiation-alt mr-1"></i>🚨 긴급</span>
+                                        {% elif u.status_type == 'logged_out' %}
+                                            <span class="badge badge-pill badge-soft-muted"><i class="fas fa-sign-out-alt mr-1"></i>로그아웃</span>
+                                        {% elif u.status_type == 'never_logged_in' %}
+                                            <span class="badge badge-pill badge-soft-muted">미출근</span>
+                                        {% else %}
+                                            <span class="badge badge-pill badge-soft-warn"><i class="fas fa-walking mr-1"></i>출근중</span>
+                                        {% endif %}
+                                        {% if u.hr_level and u.hr_bpm is not none %}
+                                            <div class="mt-1">
+                                                {% if u.hr_level == 'danger' %}
+                                                    <span class="badge badge-pill badge-soft-danger"><i class="fas fa-heartbeat mr-1"></i>{{ u.hr_label }} {{ u.hr_bpm }}bpm</span>
+                                                {% elif u.hr_level == 'warn' %}
+                                                    <span class="badge badge-pill badge-soft-warn"><i class="fas fa-heartbeat mr-1"></i>{{ u.hr_label }} {{ u.hr_bpm }}bpm</span>
+                                                {% else %}
+                                                    <span class="badge badge-pill badge-soft-success"><i class="fas fa-heartbeat mr-1"></i>{{ u.hr_label }} {{ u.hr_bpm }}bpm</span>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="icon-btn-bell" onclick="showLogs('{{ u.email }}', '{{ u.name }}')">
+                                            <i class="fas fa-bell"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card premium-card">
+                <div class="card-header bg-white py-4 border-0 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-gray-900">
+                        안전 경고 현황 <span class="text-danger small ml-1 font-weight-bold">(최근 6건)</span>
+                    </h6>
+                    <a href="/charts" class="btn btn-sm btn-ghost rounded-pill px-3">
+                        자세히 보기 <i class="fas fa-chevron-right ml-1" style="font-size:0.7rem;"></i>
+                    </a>
+                </div>
+                <div class="card-body px-4 pt-0 pb-4">
+                    <div class="table-responsive">
+                        <table class="table table-custom text-center mb-0">
+                            <thead>
+                                <tr>
+                                    <th width="25%">기록 시간</th>
+                                    <th width="20%">식별 대상</th>
+                                    <th width="30%">위반 유형</th>
+                                    <th width="25%">증거 자료</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-violations-body">
+                                <tr>
+                                    <td colspan="4" class="py-4 text-center">
+                                        <div class="spinner-border spinner-border-sm text-primary mr-2" role="status"></div>
+                                        <span class="text-muted small">최근 경고 기록을 불러오는 중입니다...</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="logModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" role="document">
+        <div class="modal-content premium-card border-0">
+            <div class="modal-header border-bottom-0 bg-light pb-3">
+                <h6 class="modal-title font-weight-bold text-gray-800" id="logModalLabel">
+                    <i class="fas fa-history text-primary mr-2"></i><span id="modalUserName"></span> 실시간 이력
+                </h6>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body pt-2" style="max-height: 400px; overflow-y: auto;">
+                <div class="list-group list-group-flush" id="modalLogList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ★ [신규] 이메일→이름 변환 헬퍼
+    //   서버에서 violation 레코드의 name 자리에 이메일이 잘못 들어와도
+    //   화면에는 항상 사람 이름으로 표시되도록 보장한다.
+    /* [이메일→이름 변환 캐시] violations에 이메일이 섞여와도 화면에는 항상 이름으로 표시 */
+window._emailToName = {};
+    async function buildEmailNameMap() {
+        try {
+            const r = await fetch('/api/email_name_map');
+            if (r.ok) window._emailToName = await r.json();
+        } catch (e) { /* silent */ }
+    }
+    function displayName(rawName) {
+        if (!rawName) return '미식별자';
+        const s = String(rawName);
+        if (s.includes('@')) {
+            return window._emailToName[s] || s.split('@')[0];
+        }
+        return s;
+    }
+
+    /* [페이지 초기화] 이메일-이름 매핑 빌드 + 안전배너 위치 설정 + 출근 게이지 + 위반 첫 로드 */
+document.addEventListener("DOMContentLoaded", function() {
+        buildEmailNameMap();   // ★ [신규] 페이지 로드 직후 매핑 캐시 생성
+
+        // 이름칸 우측 고정을 보장하는 절대 위치(Absolute) 배치 로직
+        const topbar = document.querySelector('.topbar') || document.querySelector('nav.navbar');
+        const safetyBanner = document.getElementById('teleport-safety-banner');
+
+        if (topbar && safetyBanner) {
+            topbar.style.position = 'relative';
+            topbar.appendChild(safetyBanner);
+
+            safetyBanner.style.position = 'absolute';
+            safetyBanner.style.left = '4rem';
+            safetyBanner.style.top = '50%';
+            safetyBanner.style.transform = 'translateY(-50%)';
+            safetyBanner.style.zIndex = '999';
+
+            safetyBanner.style.setProperty('display', 'flex', 'important');
+            safetyBanner.classList.add('align-items-center');
+        } else if (safetyBanner) {
+            const container = document.querySelector('.container-fluid');
+            if (container) container.insertBefore(safetyBanner, container.firstChild);
+            safetyBanner.style.setProperty('display', 'flex', 'important');
+            safetyBanner.classList.add('align-items-center', 'mb-4');
+        }
+
+        // 출근 게이지 초기화 로직
+        let onDuty = {{ on_duty | default(0) }};
+        let offDuty = {{ off_duty | default(0) }};
+        let total = onDuty + offDuty;
+        let percentage = total > 0 ? (onDuty / total) * 100 : 0;
+        const attBar = document.getElementById('attendance-bar');
+        if(attBar) attBar.style.width = percentage + '%';
+
+        // 처음 로드 시 위반 기록 호출
+        fetchRecentViolations();
+    });
+
+    // 실시간 시계 로직
+    /* [실시간 시계] 1초마다 날짜+시각 갱신 → 날씨 카드 상단에 표시 */
+function updateClock() {
+        const now = new Date();
+        const days = ['일', '월', '화', '수', '목', '금', '토'];
+        const str = now.getFullYear() + '년 ' + (now.getMonth()+1) + '월 ' + now.getDate() + '일 (' + days[now.getDay()] + ') ' +
+                    String(now.getHours()).padStart(2, '0') + ':' +
+                    String(now.getMinutes()).padStart(2, '0') + ':' +
+                    String(now.getSeconds()).padStart(2, '0');
+        const clockEl = document.getElementById('realtime-clock');
+        if(clockEl) clockEl.textContent = str;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ============================================================
+    //  성능 최적화: 적응형 폴링 (Adaptive Polling)
+    //  - 평소엔 느슨하게(부하↓), 위험/심박이상 감지되면 즉시 빠르게(반응↑)
+    //  - 변경 없을 땐 DOM 다시 안 그림, 요청 겹침 방지
+    // ============================================================
+    /* [적응형 폴링 설정] 평상시 3초 / 위험감지 시 1초로 자동 전환 (서버 부하 최소화) */
+const POLL_NORMAL = 3000;   // 평상시 출역 갱신 주기
+    const POLL_FAST   = 1000;   // 위험 이벤트 감지 시 갱신 주기
+    const FAST_HOLD   = 15000;  // 위험 후 빠른 모드 유지 시간
+
+    let workerInflight = false;     // 요청 겹침 방지 플래그
+    let lastWorkerHash = '';        // 변경 감지용 캐시
+    let workerTimer = null;
+    let currentWorkerInterval = POLL_NORMAL;
+    let fastUntil = 0;              // 이 시각까지는 빠른 모드 유지
+
+    // 위험/심박이상 상태가 하나라도 있으면 빠른 모드로 전환
+    /* [빠른 모드 전환] 위험/긴급/심박이상 감지 시 폴링 주기를 1초로 단축 */
+function bumpToFast() {
+        fastUntil = Date.now() + FAST_HOLD;
+        if (currentWorkerInterval !== POLL_FAST) {
+            currentWorkerInterval = POLL_FAST;
+            restartWorkerTimer();
+        }
+    }
+    function maybeRelax() {
+        if (currentWorkerInterval === POLL_FAST && Date.now() > fastUntil) {
+            currentWorkerInterval = POLL_NORMAL;
+            restartWorkerTimer();
+        }
+    }
+    function restartWorkerTimer() {
+        if (workerTimer) clearInterval(workerTimer);
+        workerTimer = setInterval(refreshWorkerList, currentWorkerInterval);
+    }
+
+    // 출역 현황 실시간 갱신
+    /* [출역 현황 갱신] GET /api/worker_status_list → 작업자 상태 테이블 + SOS 배너 실시간 업데이트 */
+function refreshWorkerList() {
+        if (workerInflight) return;        // 이전 요청 진행 중이면 건너뜀
+        if (document.hidden) return;       // 백그라운드 탭이면 호출 안 함
+        workerInflight = true;
+        fetch('/api/worker_status_list')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.users) return;
+
+                const tbody = document.querySelector('#workerTable tbody');
+                if(!tbody) return;
+
+                // 위험/심박이상 감지 → 빠른 모드 트리거
+                const hasAlert = data.users.some(u =>
+                    u.status_type === 'danger' || u.status_type === 'emergency' || u.hr_level === 'danger' || u.hr_level === 'warn');
+                // SOS 배너 표시
+                const sosWorkers = data.users.filter(u => u.status_type === 'emergency');
+                if (sosWorkers.length > 0) {
+                    const names = sosWorkers.map(u=>displayName(u.name)).join(', ');
+                    document.getElementById('sos-alert-text').textContent = `🚨 긴급 상황 발생! — ${names} (작업자를 즉시 확인하세요!)`;
+                    document.getElementById('sos-alert-bar').style.display = 'block';
+                } else {
+                    document.getElementById('sos-alert-bar').style.display = 'none';
+                }
+                if (hasAlert) bumpToFast(); else maybeRelax();
+
+                // 변경 감지: 직전과 동일하면 DOM 재생성 생략
+                const hash = JSON.stringify(data.users);
+                if (hash === lastWorkerHash) return;
+                lastWorkerHash = hash;
+
+                let html = '';
+                data.users.slice(0, 10).forEach(u => {
+                    // ✅ 실제 진입한 구역명 (예: "이공관") — 있으면 뱃지 옆에 작게 표시
+                    const zoneSuffix = u.current_zone
+                        ? ` <span class="text-muted small ml-1">(${u.current_zone})</span>`
+                        : '';
+                    let badge = '';
+                    if (u.status_type === 'danger') {
+                        badge = '<span class="badge badge-pill badge-soft-danger"><i class="fas fa-exclamation-triangle mr-1"></i>위험구역</span>' + zoneSuffix;
+                    } else if (u.status_type === 'construction') {
+                        badge = '<span class="badge badge-pill badge-soft-info"><i class="fas fa-hard-hat mr-1"></i>공사구역</span>' + zoneSuffix;
+                    } else if (u.status_type === 'work_zone') {
+                        badge = '<span class="badge badge-pill badge-soft-warn"><i class="fas fa-user-check mr-1"></i>근무지</span>' + zoneSuffix;
+                    } else if (u.status_type === 'safe') {
+                        badge = '<span class="badge badge-pill badge-soft-success"><i class="fas fa-shield-alt mr-1"></i>안전구역</span>' + zoneSuffix;
+                    } else if (u.status_type === 'emergency') {
+                        badge = '<span class="badge badge-pill badge-soft-emergency"><i class="fas fa-radiation-alt mr-1"></i>🚨 긴급</span>';
+                        bumpToFast();
+                    } else if (u.status_type === 'logged_out') {
+                        badge = '<span class="badge badge-pill badge-soft-muted"><i class="fas fa-sign-out-alt mr-1"></i>로그아웃</span>';
+                    } else if (u.status_type === 'never_logged_in') {
+                        badge = '<span class="badge badge-pill badge-soft-muted">미출근</span>';
+                    } else {
+                        badge = '<span class="badge badge-pill badge-soft-warn"><i class="fas fa-walking mr-1"></i>출근중</span>';
+                    }
+
+                    // ❤️ 현재 심박 상태 뱃지 (정상=초록 / 주의=노랑 / 위험=빨강)
+                    let hrBadge = '';
+                    if (u.hr_level && u.hr_bpm != null) {
+                        let hrCls = 'badge-soft-success', hrIcon = 'fa-heartbeat';
+                        if (u.hr_level === 'warn') {
+                            hrCls = 'badge-soft-warn';
+                        } else if (u.hr_level === 'danger') {
+                            hrCls = 'badge-soft-danger';
+                        }
+                        hrBadge = `<div class="mt-1"><span class="badge badge-pill ${hrCls}"><i class="fas ${hrIcon} mr-1"></i>${u.hr_label} ${u.hr_bpm}bpm</span></div>`;
+                    }
+
+                    html += `<tr>
+                        <td class="font-weight-bold text-gray-800">${displayName(u.name)}</td>
+                        <td class="text-muted">${u.phone}</td>
+                        <td>${badge}${hrBadge}</td>
+                        <td>
+                            <button class="icon-btn-bell" onclick="showLogs('${u.email}', '${displayName(u.name)}')">
+                                <i class="fas fa-bell"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+                });
+                tbody.innerHTML = html;
+
+                let totalCount = data.users.length;
+                let onDutyCount = data.users.filter(u => u.status_type !== 'never_logged_in' && u.status_type !== 'logged_out').length;
+
+                const attendanceText = document.getElementById('attendance-text');
+                if (attendanceText) attendanceText.innerHTML = `${onDutyCount}<span class="text-muted small"> / ${totalCount} 명</span>`;
+
+                const progressBar = document.getElementById('attendance-bar');
+                if (progressBar) {
+                    let percentage = totalCount > 0 ? (onDutyCount / totalCount) * 100 : 0;
+                    progressBar.style.width = percentage + '%';
+                }
+            })
+            .catch(err => console.error('worker_status_list error:', err))
+            .finally(() => { workerInflight = false; });   // 성공/실패 무관 플래그 해제
+    }
+    restartWorkerTimer();   // 적응형 타이머 시작 (평상시 3초)
+
+    // 하단 안전 경고 현황 처리 로직
+    /* [위반 현황 갱신] GET /api/get_violations → 하단 안전 경고 테이블 10초마다 갱신 */
+let violInflight = false;
+    let lastViolHash = '';
+    function fetchRecentViolations() {
+        if (violInflight) return;
+        if (document.hidden) return;
+        violInflight = true;
+        fetch('/api/get_violations')
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('recent-violations-body');
+                if(!tbody) return;
+
+                if (!data.violations || data.violations.length === 0) {
+                    if (lastViolHash !== 'empty') {
+                        tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-muted small">최근 발생한 안전 경고가 없습니다.</td></tr>';
+                        lastViolHash = 'empty';
+                    }
+                    return;
+                }
+
+                const recentLogs = data.violations.slice(0, 6);
+
+                // 변경 감지: 최근 6건이 직전과 동일하면 재렌더 생략
+                const hash = JSON.stringify(recentLogs);
+                if (hash === lastViolHash) return;
+                lastViolHash = hash;
+
+                tbody.innerHTML = recentLogs.map(v => {
+                    const isMap    = v.image_url === 'map_detect';
+                    const isHr     = v.image_url === 'heart_rate';
+                    const isIot    = v.image_url === 'iot_alert';
+                    const isNotify = v.image_url === 'app_notified';  // ★ 앱 알림
+                    const vType    = v.violation_type || '알 수 없음';
+
+                    let imgHtml = '-';
+                    let typeBadge = 'badge-soft-danger';
+
+                    // ★ 앱 알림 전송 로그 전용 처리
+                    if (isNotify) {
+                        return `
+                            <tr style="background:#f0f9ff;">
+                                <td class="text-gray-600 small font-weight-bold">${v.detected_at || '--'}</td>
+                                <td class="font-weight-bold text-gray-900">${displayName(v.name)}</td>
+                                <td>
+                                    <span class="badge badge-pill px-3 py-2" style="background:#0ea5e9;color:#fff;">
+                                        📱 앱 알림 전송
+                                    </span>
+                                </td>
+                                <td><i class="fas fa-mobile-alt" style="color:#0ea5e9;font-size:1.1rem;"></i></td>
+                            </tr>
+                        `;
+                    }
+
+                    if (vType.includes('위험') || vType.includes('빈맥') || vType.includes('서맥') || vType.includes('열사병')) {
+                        typeBadge = 'badge-soft-danger';
+                    } else if (vType.includes('주의')) {
+                        typeBadge = 'badge-soft-warn';
+                    } else if (vType.includes('안전') || vType.includes('퇴장') || vType.includes('정상') || vType.includes('복귀')) {
+                        typeBadge = 'badge-soft-success';
+                    } else if (vType.includes('진입')) {
+                        typeBadge = 'badge-soft-warn';
+                    } else {
+                        typeBadge = 'badge-soft-danger';
+                    }
+
+                    const isSos2 = v.image_url === 'emergency_sos' || v.image_url === 'emergency_impact';
+                    if (isSos2) {
+                        const sosIcon = v.image_url === 'emergency_impact' ? 'fa-bomb' : 'fa-sos';
+                        imgHtml = `<div class="text-danger" style="animation:sos-pulse .8s infinite"><i class="fas ${sosIcon} fa-lg"></i></div>`;
+                        typeBadge = 'badge-soft-emergency';
+                    } else if (isHr) {
+                        // ❤️ 심박 이벤트: 이미지 대신 하트 아이콘 표시
+                        const hrColor = vType.includes('위험') ? 'text-danger'
+                                      : vType.includes('주의') ? 'text-warning'
+                                      : 'text-success';
+                        imgHtml = `<div class="${hrColor}"><i class="fas fa-heartbeat fa-lg"></i></div>`;
+                    } else if (isIot || vType.includes('열사병')) {
+                        // 🌡️ 온습도 이벤트 (열사병)
+                        imgHtml = `<div class="text-danger"><i class="fas fa-temperature-high fa-lg"></i></div>`;
+                    } else if (v.image_url && !isMap) {
+                        imgHtml = `<img src="${v.image_url}" class="violation-thumb">`;
+                    } else if (isMap) {
+                        imgHtml = `<div class="text-primary small"><i class="fas fa-map-marked-alt fa-lg"></i></div>`;
+                    }
+
+                    return `
+                        <tr>
+                            <td class="text-gray-600 small font-weight-bold">${v.detected_at || '--'}</td>
+                            <td class="font-weight-bold text-gray-900">${displayName(v.name)}</td>
+                            <td>
+                                <span class="badge badge-pill ${typeBadge} px-3 py-2">
+                                    ${vType}
+                                </span>
+                            </td>
+                            <td>${imgHtml}</td>
+                        </tr>
+                    `;
+                }).join('');
+            })
+            .catch(err => console.error('Error fetching recent violations:', err))
+            .finally(() => { violInflight = false; });
+    }
+    let violTimer = setInterval(fetchRecentViolations, 10000);
+
+    // ============================================================
+    //  백그라운드 탭이면 폴링 멈추고, 복귀하면 즉시 1회 갱신
+    //  (서버 부하 절감 + 돌아왔을 때 최신 상태 바로 반영)
+    // ============================================================
+    /* [백그라운드 탭 최적화] 탭 숨김 시 폴링 중단, 복귀 시 즉시 1회 갱신 */
+document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            refreshWorkerList();
+            fetchRecentViolations();
+        }
+    });
+
+    // 모달창 띄우기 로직
+    /* [작업자 이력 모달] GET /api/worker_logs/{email} → 위반기록+구역변화 최신 10건 표시 */
+function showLogs(email, name) {
+        document.getElementById('modalUserName').innerText = name;
+        const logList = document.getElementById('modalLogList');
+        logList.innerHTML = `<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div><div class="small mt-2 text-muted">기록을 불러오는 중...</div></div>`;
+        $('#logModal').modal('show');
+
+        fetch(`/api/worker_logs/${email}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.logs && data.logs.length > 0) {
+                    let logHtml = '';
+                    data.logs.forEach(log => {
+                        const content = log.content || '';
+                        const isHr  = content.includes('심박');
+                        const isIot = content.includes('열사병') || content.includes('온도');
+                        const isSos = content.includes('구조') || content.includes('충격') || content.includes('긴급');
+                        let icon;
+                        
+                        if (isSos) {
+                            icon = '<i class="fas fa-radiation-alt text-danger" style="animation:sos-pulse .8s infinite"></i>';
+                        } else if (isHr) {
+                            const hrColor = content.includes('위험') ? 'text-danger'
+                                          : content.includes('주의') ? 'text-warning'
+                                          : 'text-success';
+                            icon = `<i class="fas fa-heartbeat ${hrColor}"></i>`;
+                        } else if (isIot) {
+                            icon = '<i class="fas fa-temperature-high text-danger"></i>';
+                        } else if (log.type === 'violation') {
+                            icon = '<i class="fas fa-exclamation-triangle text-danger"></i>';
+                        } else {
+                            icon = '<i class="fas fa-map-marker-alt text-primary"></i>';
+                        }
+
+                        logHtml += `
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-2 py-3 border-bottom dashed">
+                                <div class="d-flex align-items-center">
+                                    <div class="mr-3">${icon}</div>
+                                    <div class="text-gray-800 small font-weight-bold">${content}</div>
+                                </div>
+                                <span class="text-muted" style="font-size: 0.75rem;">${log.time}</span>
+                            </div>
+                        `;
+                    });
+                    logList.innerHTML = logHtml;
+                } else {
+                    logList.innerHTML = '<div class="text-center text-muted py-4 small">최근 발생한 이벤트가 없습니다.</div>';
+                }
+            })
+            .catch(err => {
+                logList.innerHTML = '<div class="text-center text-danger py-4 small">데이터를 불러오는데 실패했습니다.</div>';
+            });
+    }
+
+    // 긴급 배너 닫기
+    /* [SOS 배너 닫기] 상단 긴급 배너 수동 닫기 */
+function dismissSosBar() {
+        document.getElementById('sos-alert-bar').style.display = 'none';
+    }
+</script>
+{% endblock %}

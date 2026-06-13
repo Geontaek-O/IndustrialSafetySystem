@@ -1,0 +1,181 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<main class="container-fluid">
+    
+    <!-- [페이지 헤더] 제목 + 설명 문구 -->
+<header class="mb-4">
+        <h1 class="h3 mb-2 text-gray-800">현장 인력 명단표</h1>
+        <p class="mb-4 text-muted">등록된 모든 근로자의 인적사항과 현재 출근 상태를 실시간으로 확인합니다.</p>
+    </header>
+
+    <!-- [작업자 목록 카드] 전체 근로자 테이블 + 상세정보 모달 포함 -->
+<section class="card shadow mb-4">
+        <header class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">인적사항 데이터베이스</h6>
+            <span class="badge badge-info text-xs">이름을 클릭하면 상세 정보가 나타납니다.</span>
+        </header>
+
+        <article class="card-body">
+            <div class="table-responsive">
+                <!-- [작업자 테이블] 이름/나이/성별/전화번호/이메일/현재상태 표시 (DataTables 적용) -->
+<table class="table table-bordered table-hover" id="dataTable" width="100%" cellspacing="0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th scope="col" class="text-center">이름</th>
+                            <th scope="col" class="text-center">나이</th>
+                            <th scope="col" class="text-center">성별</th> 
+                            <th scope="col" class="text-center">전화번호</th>
+                            <th scope="col" class="text-center">이메일(ID)</th>
+                            <th scope="col" class="text-center">현재 상태</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td class="font-weight-bold text-center align-middle">
+                                <a href="#" class="text-primary" 
+                                   data-toggle="modal" 
+                                   data-target="#workerDetailModal"
+                                   onclick="showWorkerDetail('{{ user.name }}', '{{ user.email }}', '{{ user.phone }}', '{{ user.gender if user.gender else '미지정' }}')">
+                                    {{ user.name }}
+                                </a>
+                            </td>
+                            <td class="text-center align-middle">{{ user.age }}세</td>
+                            <td class="text-center align-middle">{{ user.gender if user.gender else '미지정' }}</td>
+                            <td class="text-center align-middle">{{ user.phone }}</td>
+                            <td class="text-center align-middle">{{ user.email }}</td>
+                            <td class="text-center align-middle">
+                                {% if user.status_type == 'never_logged_in' %}
+                                    <span class="badge badge-secondary p-2"><i class="fas fa-user-clock"></i> 미출근</span>
+                                {% elif user.status_type == 'logged_out' %}
+                                    <span class="badge badge-secondary p-2"><i class="fas fa-sign-out-alt"></i> 로그아웃</span>
+                                {% elif user.status_type == 'danger' %}
+                                    <span class="badge badge-danger p-2"><i class="fas fa-exclamation-triangle"></i> 위험구역</span>
+                                {% elif user.status_type == 'safe' %}
+                                    <span class="badge badge-success p-2"><i class="fas fa-shield-alt"></i> 안전구역</span>
+                                {% elif user.status_type == 'work_zone' %}
+                                    <span class="badge badge-primary p-2"><i class="fas fa-briefcase"></i> 출근구역</span>
+                                {% else %}
+                                    <span class="badge badge-warning p-2 text-dark"><i class="fas fa-hard-hat"></i> 출근중</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </article>
+    </section>
+</main>
+
+<!-- [작업자 상세 모달] 이름 클릭 시 상세정보(가입일·출근캘린더) 팝업 표시 -->
+<div class="modal fade" id="workerDetailModal" tabindex="-1" role="dialog" aria-labelledby="workerDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem;">
+            <div class="modal-header bg-primary text-white" style="border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                <h5 class="modal-title font-weight-bold" id="workerDetailModalLabel">
+                    <i class="fas fa-id-card-alt mr-2"></i>작업자 상세 정보
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row mb-4 border-bottom pb-3">
+                    <div class="col-md-4 text-center border-right">
+                        <i class="fas fa-user-circle fa-5x text-gray-200 mb-2"></i>
+                        <h4 class="font-weight-bold text-dark mb-0" id="modalName">성함</h4>
+                        <p class="text-muted small" id="modalEmail">email@example.com</p>
+                    </div>
+                    <div class="col-md-8 pl-md-4 mt-3 mt-md-0">
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="text-xs font-weight-bold text-primary text-uppercase mb-1 d-block">전화번호</label>
+                                <span class="text-dark font-weight-bold" id="modalPhone">010-0000-0000</span>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="text-xs font-weight-bold text-primary text-uppercase mb-1 d-block">성별</label>
+                                <span class="text-dark font-weight-bold" id="modalGender">남성</span>
+                            </div>
+                            <div class="col-6">
+                                <label class="text-xs font-weight-bold text-primary text-uppercase mb-1 d-block">가입 일자</label>
+                                <span class="text-dark font-weight-bold" id="modalRegDate">2026-03-24 (임시)</span>
+                            </div>
+                            <div class="col-6">
+                                <label class="text-xs font-weight-bold text-primary text-uppercase mb-1 d-block">소속 팀</label>
+                                <span class="text-dark font-weight-bold">Team 10</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h6 class="font-weight-bold text-primary mb-3">
+                        <i class="fas fa-calendar-check mr-2"></i>이번 달 출근 현황
+                    </h6>
+                    <div class="p-3 bg-gray-100 rounded">
+                        <div class="d-flex flex-wrap justify-content-start">
+                            {% for i in range(1, 25) %}
+                                <div class="text-center m-1 p-2 border rounded bg-white shadow-sm" style="width: 45px;">
+                                    <div class="text-xs text-muted mb-1">{{ i }}일</div>
+                                    {% if i % 7 == 0 or i % 7 == 6 %}
+                                        <i class="fas fa-minus text-gray-300"></i>
+                                    {% else %}
+                                        <i class="fas fa-check-circle text-success"></i>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <p class="text-xs text-muted mt-3 mb-0 text-right">* 체크 표시는 정상 출근일을 의미합니다.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light" style="border-bottom-left-radius: 1rem; border-bottom-right-radius: 1rem;">
+                <button type="button" class="btn btn-secondary px-4" data-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', path='vendor/datatables/jquery.dataTables.min.js') }}"></script>
+<script src="{{ url_for('static', path='vendor/datatables/dataTables.bootstrap4.min.js') }}"></script>
+<script src="{{ url_for('static', path='js/demo/datatables-demo.js') }}"></script>
+
+<script>
+    /* [작업자 상세 조회] GET /api/worker_detail/{email} → 가입일 + 당월 출근 캘린더 렌더링 */
+function showWorkerDetail(name, email, phone, gender) {
+        // 1. 기본 정보 먼저 표시
+        document.getElementById('modalName').innerText = name;
+        document.getElementById('modalEmail').innerText = email;
+        document.getElementById('modalPhone').innerText = phone;
+        document.getElementById('modalGender').innerText = gender;
+
+        // 2. FastAPI 서버에서 상세 데이터 가져오기
+        fetch(`/api/worker_detail/${email}`)
+            .then(response => response.json())
+            .then(data => {
+                // 진짜 가입일 적용
+                document.getElementById('modalRegDate').innerText = data.created_at;
+
+                // 캘린더 영역 비우고 새로 그리기
+                const calendarArea = document.querySelector("#workerDetailModal .d-flex.flex-wrap");
+                calendarArea.innerHTML = ""; // 기존 임시 데이터 삭제
+
+                for (let i = 1; i <= 30; i++) {
+                    const dayStr = i.toString().padStart(2, '0');
+                    const isAttended = data.attendance_days.includes(dayStr); // 접속 기록에 있는 날인지 확인
+                    
+                    const dayBox = `
+                        <div class="text-center m-1 p-2 border rounded ${isAttended ? 'bg-success text-white' : 'bg-white'}" style="width: 45px;">
+                            <div class="text-xs ${isAttended ? 'text-white' : 'text-muted'} mb-1">${i}일</div>
+                            <i class="fas ${isAttended ? 'fa-check-circle' : 'fa-minus'}"></i>
+                        </div>`;
+                    calendarArea.innerHTML += dayBox;
+                }
+            })
+            .catch(error => console.error("데이터를 불러오는 중 오류 발생:", error));
+    }
+</script>
+
+{% endblock %}

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko-KR">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>산업 안전 모니터링 시스템 - 회원가입</title>
+    <link href="{{ url_for('static', path='vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
+    <link href="{{ url_for('static', path='css/sb-admin-2.min.css') }}" rel="stylesheet">
+    
+    <style>
+        /* 로그인 페이지와 동일한 어두운 남색 그라데이션 배경 */
+        body.bg-monitoring {
+            background-color: #2c3e50;
+            background-image: linear-gradient(180deg, #2c3e50 10%, #1a252f 100%);
+            background-size: cover;
+        }
+        /* 카드 테두리 둥글게 처리 */
+        .login-card {
+            border-radius: 1rem;
+        }
+    </style>
+</head>
+
+<body class="bg-monitoring">
+    <main class="container d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+        <div class="row justify-content-center w-100">
+            <div class="col-xl-6 col-lg-7 col-md-9 col-sm-11">
+                
+                <article class="card o-hidden border-0 shadow-lg login-card my-5">
+                    <div class="card-body p-0">
+                        <div class="p-5">
+                            <header class="text-center mb-4">
+                                <i class="fas fa-user-shield fa-3x text-primary mb-3"></i>
+                                <h1 class="h4 text-gray-900 font-weight-bold mb-2">신규 작업자 등록</h1>
+                                <p class="text-muted small">시스템 접속 권한을 위해 아래 정보를 정확히 입력해 주세요.</p>
+                            </header>
+
+                            <section>
+                                <!-- [회원가입 폼] POST /register — 이름/전화/이메일/비밀번호/생년월일/성별 전송 + AI 얼굴 등록 -->
+<form class="user" action="/register" method="POST">
+                                    
+                                    <!-- [이름 + 전화번호 입력] 두 칸을 한 행에 배치 -->
+<div class="form-group row">
+                                        <div class="col-sm-6 mb-3 mb-sm-0">
+                                            <label for="name" class="sr-only">이름</label>
+                                            <input type="text" id="name" name="name" class="form-control form-control-user" placeholder="성함 (예: 홍길동)" required>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label for="phone" class="sr-only">전화번호</label>
+                                            <input type="tel" id="phone" name="phone" class="form-control form-control-user" placeholder="연락처 (숫자만 입력)" maxlength="13" oninput="autoHyphen(this)" required>
+                                        </div>
+                                    </div>
+
+                                    <!-- [이메일 입력] 로그인 ID로 사용되는 이메일 주소 -->
+<div class="form-group">
+                                        <label for="email" class="sr-only">이메일 주소</label>
+                                        <input type="email" id="email" name="email" class="form-control form-control-user" placeholder="이메일 주소 (로그인 ID로 사용됩니다)" required>
+                                    </div>
+
+                                    <!-- [비밀번호 입력] 계정 비밀번호 설정 -->
+<div class="form-group">
+                                        <label for="password" class="sr-only">비밀번호</label>
+                                        <input type="password" id="password" name="password" class="form-control form-control-user" placeholder="비밀번호 설정" required>
+                                    </div>
+
+                                    <!-- [생년월일 + 성별] 추가 인적사항 입력 영역 -->
+<div class="form-group row align-items-center mt-4 border-top pt-3 mx-1">
+                                        <div class="col-sm-7 mb-3 mb-sm-0">
+                                            <label for="birthday" class="ml-2 small text-muted mb-1 font-weight-bold">생년월일</label>
+                                            <input type="date" id="birthday" name="birthday" class="form-control form-control-user px-3" required>
+                                        </div>
+                                        <div class="col-sm-5 text-center mt-3 mt-sm-0">
+                                            <label class="small mb-2 text-muted d-block font-weight-bold">성별</label>
+                                            <div class="custom-control custom-radio custom-control-inline">
+                                                <input type="radio" id="genderMale" name="gender" value="남성" class="custom-control-input" required>
+                                                <label class="custom-control-label small text-gray-800" for="genderMale">남성</label>
+                                            </div>
+                                            <div class="custom-control custom-radio custom-control-inline">
+                                                <input type="radio" id="genderFemale" name="gender" value="여성" class="custom-control-input">
+                                                <label class="custom-control-label small text-gray-800" for="genderFemale">여성</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- [회원가입 완료 버튼] 폼 제출 → AI 얼굴 임베딩 추출 → face_db 저장 -->
+<button type="submit" class="btn btn-primary btn-user btn-block font-weight-bold mt-4">
+                                        회원가입 완료
+                                    </button>
+                                </form>
+                            </section>
+
+                            <hr class="my-4">
+
+                            <footer class="text-center">
+                                <nav aria-label="계정 관리 링크">
+                                    <div class="mb-2">
+                                        <a class="small text-muted" href="{{ url_for('forgot_password') }}">비밀번호를 잊으셨나요?</a>
+                                    </div>
+                                    <div>
+                                        <a class="small font-weight-bold" href="{{ url_for('login') }}">이미 계정이 있으신가요? 로그인하기</a>
+                                    </div>
+                                </nav>
+                            </footer>
+                        </div>
+                    </div>
+                </article>
+
+            </div>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', path='vendor/jquery/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', path='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', path='vendor/jquery-easing/jquery.easing.min.js') }}"></script>
+    <script src="{{ url_for('static', path='js/sb-admin-2.min.js') }}"></script>
+
+    <script>
+        /* [전화번호 자동 하이픈] 숫자 입력 시 010-0000-0000 형식으로 자동 변환 */
+function autoHyphen(target) {
+            // 입력된 값에서 숫자 이외의 문자는 모두 제거
+            let val = target.value.replace(/[^0-9]/g, '');
+            let res = '';
+
+            // 숫자의 길이에 따라 하이픈(-)을 적절한 위치에 삽입
+            if (val.length < 4) {
+                res = val;
+            } else if (val.length < 7) {
+                res = val.substring(0, 3) + '-' + val.substring(3);
+            } else if (val.length < 11) {
+                res = val.substring(0, 3) + '-' + val.substring(3, 6) + '-' + val.substring(6);
+            } else {
+                res = val.substring(0, 3) + '-' + val.substring(3, 7) + '-' + val.substring(7);
+            }
+            
+            // 변환된 값을 다시 입력칸에 적용
+            target.value = res;
+        }
+    </script>
+</body>
+</html>
