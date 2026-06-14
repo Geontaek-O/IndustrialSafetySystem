@@ -44,11 +44,12 @@
 
 ```text
 IndustrialSafetySystem/
-├── android-app/          # 안드로이드 애플리케이션
-│   └── app/src/main/     # CameraX 캡처 UI, BLE 백그라운드 서비스, 지오펜싱 로직 등 App 메인 코드
-├── server-web/           # 백엔드 웹 서버 및 통합 관제 대시보드 소스코드
-├── object_detection/     # 안면 인증 및 추락/쓰러짐/안전장구 탐지 추론 스크립트
-├── IoT_pico/             # 라즈베리파이 피코(IoT) 소스 코드
+├── android-app/                              # 안드로이드 애플리케이션
+│   └── app/src/main/                         # CameraX 캡처 UI, BLE 백그라운드 서비스 등 App 메인 코드
+├── server-web/                               # 백엔드 웹 서버 및 통합 관제 대시보드 소스코드
+├── object_detection/                         # 안면 인증 및 추락/쓰러짐/안전장구 탐지 추론 스크립트
+│   └── runs/detect/helmet_yolo11/weights     # 자체 학습 및 사용한 모델
+├── IoT_pico/                                 # 라즈베리파이 피코(IoT) 소스 코드
 ├── .gitignore
 └── README.md
 ```
